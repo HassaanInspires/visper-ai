@@ -309,12 +309,10 @@ export class LocalDb {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction("messages", "readonly");
       const store = transaction.objectStore("messages");
-      const index = store.index("synced");
-      const request = index.getAll(0); // false is typically 0 in indexedDB indices, but let's query raw
+      const request = store.getAll();
 
       request.onsuccess = () => {
         const result = request.result as DbMessage[];
-        // Double filter just to be safe
         resolve(result.filter(m => !m.synced));
       };
       request.onerror = () => reject(request.error);
@@ -348,8 +346,7 @@ export class LocalDb {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction("sessions", "readonly");
       const store = transaction.objectStore("sessions");
-      const index = store.index("synced");
-      const request = index.getAll(0);
+      const request = store.getAll();
 
       request.onsuccess = () => {
         const result = request.result as DbSession[];
