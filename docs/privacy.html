@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Visper AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #050508; color: #cbd5e1; }
+    .glass-panel { background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(35px); }
+  </style>
+</head>
+<body class="bg-[#050508] text-slate-300 py-12 px-6">
+  <div class="max-w-4xl mx-auto glass-panel p-8 md:p-12 rounded-3xl border border-white/10 space-y-8">
+    <div class="flex items-center justify-between pb-6 border-b border-white/10">
+      <div>
+        <h1 class="text-3xl font-extrabold text-white">Privacy Policy for Visper AI</h1>
+        <p class="text-xs text-purple-400 font-semibold mt-1">Effective Date: July 22, 2026 | Extension Version: 2.5.0</p>
+      </div>
+      <a href="index.html" class="text-xs bg-purple-600/30 border border-purple-500/40 text-purple-300 px-3 py-1.5 rounded-xl font-bold hover:bg-purple-600/50 transition">← Back to Home</a>
+    </div>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white">1. Single Purpose & Overview</h2>
+      <p class="text-sm leading-relaxed text-slate-300">
+        Visper AI is an autonomous AI browser assistant and copilot extension designed solely to enhance web productivity. Its single purpose is to assist users with web content interaction, e-commerce shopping automation, web research synthesis, document vector search, and YouTube transcript summaries.
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white">2. Data Collection & Privacy Practices</h2>
+      <h3 class="text-base font-semibold text-purple-300">A. Data Stored 100% Locally</h3>
+      <ul class="list-disc pl-5 text-sm space-y-1.5 text-slate-300">
+        <li><b>API Keys & Settings:</b> User API keys (OpenAI, Anthropic, Gemini, Groq, DeepSeek) and extension settings are stored locally on the user's browser via <code class="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded">chrome.storage.local</code>.</li>
+        <li><b>Local Semantic Memory (RAG):</b> Past chat history and uploaded PDF document chunks are vectorized locally using WebAssembly (Transformers.js ONNX) and stored locally in IndexedDB.</li>
+        <li><b>No Telemetry or Third-Party Tracking:</b> Visper AI does NOT use tracking cookies, analytics SDKs, or external telemetry tracking servers.</li>
+      </ul>
+
+      <h3 class="text-base font-semibold text-purple-300 pt-2">B. Network Data Transmission</h3>
+      <p class="text-sm leading-relaxed text-slate-300">
+        When a user submits a prompt, text queries and relevant page context are sent directly to the user-selected AI model provider API (e.g. OpenAI, Anthropic, Google Gemini, Groq, DeepSeek) or processed completely offline via Chrome Gemini Nano. All network requests occur via encrypted HTTPS directly between the user's browser and the AI provider with no middleman server.
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white">3. Permissions Justification</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">sidePanel:</b> Displays assistant UI alongside active web pages.</div>
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">activeTab:</b> Extracts page context when requested by the user.</div>
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">tabs:</b> Opens new research tabs during multi-step tasks.</div>
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">scripting:</b> Executes DOM action heuristics authorized by user.</div>
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">storage:</b> Saves local user preferences and chat history.</div>
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">offscreen:</b> Computes local WASM text embeddings for vector RAG.</div>
+      </div>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white">4. Data Erasure & Control</h2>
+      <p class="text-sm leading-relaxed text-slate-300">
+        Users retain 100% control of their data. All local chat histories and vector databases can be erased at any time from the extension settings panel. Uninstalling the extension permanently removes all stored data from the browser.
+      </p>
+    </section>
+
+    <div class="pt-6 border-t border-white/10 text-center text-xs text-slate-400">
+      For privacy inquiries, please visit our <a href="support.html" class="text-purple-400 underline">Support Page</a> or official <a href="https://github.com/HassaanInspires/visper-ai" class="text-purple-400 underline">GitHub Repository</a>.
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visper AI — Autonomous Browser Copilot & Multi-Agent Assistant</title>
+  <meta name="description" content="Visper AI is an autonomous AI browser assistant and copilot extension. E-commerce shopping automation, web research synthesis, YouTube transcript summaries & local WASM RAG.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #050508;
+      color: #ffffff;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(35px);
+    }
+    .glow-text {
+      text-shadow: 0 0 35px rgba(168, 85, 247, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-[#050508] text-slate-100 antialiased selection:bg-purple-500 selection:text-white">
+
+  <!-- Navbar -->
+  <header class="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-white/10 px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 p-0.5 shadow-lg shadow-purple-500/20">
+          <div class="w-full h-full bg-[#0d0f17] rounded-[10px] flex items-center justify-center font-extrabold text-purple-300 text-sm">V</div>
+        </div>
+        <span class="font-extrabold text-lg tracking-tight text-white">Visper AI</span>
+        <span class="bg-purple-500/20 border border-purple-400/30 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full">v2.5.0</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <a href="#features" class="hover:text-purple-300 transition">Features</a>
+        <a href="#privacy" class="hover:text-purple-300 transition">Privacy</a>
+        <a href="privacy.html" class="hover:text-purple-300 transition">Privacy Policy</a>
+        <a href="support.html" class="hover:text-purple-300 transition">Support</a>
+      </nav>
+
+      <a href="https://chrome.google.com/webstore" target="_blank" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-purple-600/30 transition">
+        Add to Chrome — Free
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="pt-36 pb-24 px-6 relative overflow-hidden">
+    <div class="max-w-5xl mx-auto text-center space-y-8 relative z-10">
+      <div class="inline-flex items-center gap-2 bg-purple-950/60 border border-purple-500/30 px-4 py-1.5 rounded-full text-xs font-semibold text-purple-300">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Official Chrome Web Store Extension
+      </div>
+
+      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight glow-text text-white leading-tight">
+        Your Autonomous <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-cyan-400">AI Browser Copilot</span>
+      </h1>
+
+      <p class="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
+        Automate web browsing tasks, synthesize multi-tab deep research, analyze YouTube video transcripts, and run 100% private local WASM vector memory directly in your browser.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <a href="https://chrome.google.com/webstore" target="_blank" class="w-full sm:w-auto bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-extrabold text-sm px-8 py-4 rounded-xl shadow-xl shadow-purple-600/40 transition">
+          🚀 Install Visper AI for Chrome
+        </a>
+        <a href="https://github.com/HassaanInspires/visper-ai" target="_blank" class="w-full sm:w-auto glass-panel hover:bg-white/10 text-slate-200 font-bold text-sm px-8 py-4 rounded-xl border border-white/10 transition">
+          ⭐ View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="py-20 px-6 max-w-6xl mx-auto">
+    <div class="text-center space-y-4 mb-16">
+      <h2 class="text-3xl font-extrabold text-white">Engineered for Next-Level Web Productivity</h2>
+      <p class="text-slate-400 text-sm max-w-2xl mx-auto">Visper AI combines autonomous WebMCP tools with multi-provider LLMs to handle complex browser workflows.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="glass-panel p-8 rounded-2xl border border-white/10 hover:border-purple-500/40 transition space-y-4">
+        <div class="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-2xl">🛍️</div>
+        <h3 class="text-xl font-bold text-white">E-Commerce Shopping Copilot</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">Automatically selects clothing size variants (Shopify, WooCommerce), compares cart prices, checks available coupons, and assists with checkout form fills.</p>
+      </div>
+
+      <div class="glass-panel p-8 rounded-2xl border border-white/10 hover:border-cyan-500/40 transition space-y-4">
+        <div class="w-12 h-12 rounded-xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-2xl">🔍</div>
+        <h3 class="text-xl font-bold text-white">Deep Web Research & GFM Tables</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">Executes multi-tab background web queries and synthesizes complex data into formatted GFM Markdown comparison tables with direct source citations.</p>
+      </div>
+
+      <div class="glass-panel p-8 rounded-2xl border border-white/10 hover:border-red-500/40 transition space-y-4">
+        <div class="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-2xl">📺</div>
+        <h3 class="text-xl font-bold text-white">YouTube Video Copilot</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">Extracts synchronized caption transcripts in English & Urdu, generating key takeaways, main topics, and instant timestamp analysis.</p>
+      </div>
+
+      <div class="glass-panel p-8 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-2xl">🧠</div>
+        <h3 class="text-xl font-bold text-white">100% Local RAG Vector Memory</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">Vectorizes past chat history and uploaded PDF document chunks completely offline using WebAssembly (ONNX Transformers.js) in IndexedDB.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10 py-12 px-6 text-center text-slate-400 text-xs space-y-4">
+    <div class="flex justify-center gap-6 text-slate-300 font-medium">
+      <a href="index.html" class="hover:text-purple-300">Home</a>
+      <a href="privacy.html" class="hover:text-purple-300">Privacy Policy</a>
+      <a href="support.html" class="hover:text-purple-300">Support & Help</a>
+      <a href="https://github.com/HassaanInspires/visper-ai" class="hover:text-purple-300">GitHub Repository</a>
+    </div>
+    <p>© 2026 Visper AI. Built for privacy, speed, and autonomous productivity.</p>
+  </footer>
+
+</body>
+</html>
