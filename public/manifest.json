@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Visper AI",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "A premium AI-powered browser sidebar assistant and local agent copilot.",
   "permissions": [
     "sidePanel",
