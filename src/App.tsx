@@ -1248,6 +1248,10 @@ ${desc || "No description available."}`;
 
     let runningMsgs = [...currentMessages];
 
+    let successCount = 0;
+    let failCount = 0;
+    let lastErrorReason = "";
+
     // Execute every action block in sequence
     for (const data of actionBlocks) {
 
@@ -1262,10 +1266,13 @@ ${desc || "No description available."}`;
           const resultMsg = await LocalDb.addMessage(sessionId, "assistant", `[Tool Result: ${JSON.stringify(result)}]`);
           runningMsgs = [...runningMsgs, resultMsg];
           setMessages([...runningMsgs]);
+          successCount++;
         } catch (err: any) {
           const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[Tool Error: ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
+          failCount++;
+          lastErrorReason = err.message;
         }
       }
 
@@ -1283,10 +1290,13 @@ ${desc || "No description available."}`;
           const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${result.message || "Done"}]`);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
+          successCount++;
         } catch (err: any) {
           const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
+          failCount++;
+          lastErrorReason = err.message;
         }
 
         // Small delay between sequential DOM writes for page rendering stability
@@ -1391,29 +1401,47 @@ ${desc || "No description available."}`;
           const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${message}]`);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
+          successCount++;
         } catch (err: any) {
           const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
+          failCount++;
+          lastErrorReason = err.message;
         }
 
         await new Promise(r => setTimeout(r, 150));
       }
     }
 
-    // Final summary — re-trigger the model to process tool results and answer the user
-    const doneMsg = await LocalDb.addMessage(sessionId, "assistant",
-      `✅ Done — executed ${actionBlocks.length} action${actionBlocks.length > 1 ? "s" : ""} on the page.`
-    );
-    runningMsgs = [...runningMsgs, doneMsg];
+    // Honest execution summary
+    let summaryText = "";
+    if (failCount === 0) {
+      summaryText = `✅ Done — executed ${successCount} action${successCount > 1 ? "s" : ""} on the page.`;
+    } else if (successCount > 0) {
+      summaryText = `⚠️ Completed ${successCount} of ${actionBlocks.length} actions (${failCount} failed).`;
+    } else {
+      summaryText = `✗ Action Failed — could not perform action on page (${lastErrorReason || "target element not found"}).`;
+    }
+
+    const summaryMsg = await LocalDb.addMessage(sessionId, "assistant", summaryText);
+    runningMsgs = [...runningMsgs, summaryMsg];
     setMessages([...runningMsgs]);
 
     // Recursive agent loop: feed results back to the model
     if (agentLoopCountRef.current < 5) {
       agentLoopCountRef.current += 1;
+      
+      let loopPrompt = "";
+      if (failCount === 0) {
+        loopPrompt = "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.";
+      } else {
+        loopPrompt = `System: The attempted page action FAILED (${lastErrorReason || "element not found"}). Please inform the user clearly that the action could not be completed on this page. Do NOT retry the exact same failing action block.`;
+      }
+
       console.log(`Agent loop step ${agentLoopCountRef.current}/5. Re-triggering model to formulate final reply...`);
       executeModelStream(
-        "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.",
+        loopPrompt,
         sessionId,
         runningMsgs
       );
