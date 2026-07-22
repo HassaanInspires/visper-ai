@@ -1083,7 +1083,7 @@ ${desc || "No description available."}`;
                 handleAgentAction(saved.text, prev.map(m => m.id === completedId ? saved : m));
 
                 triggerLocalEmbedding(saved.id, saved.text).then(() => {
-                  CloudSync.sync().catch(console.error);
+                  if (enableCloudSync) CloudSync.sync().catch(console.error);
                 });
               }, 0);
             });
@@ -1765,7 +1765,7 @@ User Query: ${userPrompt}`;
     
     if (userPrompt.trim()) {
       triggerLocalEmbedding(userMsg.id, userPrompt).then(() => {
-        CloudSync.sync().catch(console.error);
+        if (enableCloudSync) CloudSync.sync().catch(console.error);
       });
     }
 
@@ -1815,7 +1815,7 @@ User Query: ${userPrompt}`;
 
     if (question.trim()) {
       triggerLocalEmbedding(userMsg.id, question).then(() => {
-        CloudSync.sync().catch(console.error);
+        if (enableCloudSync) CloudSync.sync().catch(console.error);
       });
     }
 
