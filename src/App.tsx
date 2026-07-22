@@ -1297,6 +1297,18 @@ ${desc || "No description available."}`;
 
       // B. Legacy DOM interaction (fill, click, focus, scroll, etc.)
       else if (data.action === "dom_interact" && data.domAction) {
+        // Deduplicate consecutive extract_page_content calls
+        if (data.domAction === "extract_page_content") {
+          const lastMsg = runningMsgs[runningMsgs.length - 1];
+          if (lastMsg && (lastMsg.text.includes("Extracted text from page") || lastMsg.text.includes("extract_page_content"))) {
+            console.log("Skipping duplicate consecutive extract_page_content action.");
+            const skipMsg = await LocalDb.addMessage(sessionId, "assistant", `[ℹ️ Page text already extracted in history. Formulating response...]`);
+            runningMsgs = [...runningMsgs, skipMsg];
+            setMessages([...runningMsgs]);
+            continue;
+          }
+        }
+
         const label = data.text || data.selector || data.tag || "element";
         const logMsg = await LocalDb.addMessage(sessionId, "assistant",
           `[DOM ${data.domAction}: "${label}"${data.value ? ` → "${data.value}"` : ""}]`
@@ -1450,10 +1462,16 @@ ${desc || "No description available."}`;
     // Recursive agent loop: feed results back to the model
     if (agentLoopCountRef.current < 5) {
       agentLoopCountRef.current += 1;
+
+      const hasTextInHist = runningMsgs.some(m => m.text.includes("Extracted text from page") || m.text.includes("[✓ Extracted text from page"));
       
       let loopPrompt = "";
       if (failCount === 0) {
-        loopPrompt = "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.";
+        if (hasTextInHist) {
+          loopPrompt = "System: Page content is ALREADY present in the conversation history above. Do NOT output any JSON action blocks (such as extract_page_content). Formulate your final response to the user now using the extracted page text.";
+        } else {
+          loopPrompt = "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.";
+        }
       } else {
         loopPrompt = `System: The attempted page action FAILED (${lastErrorReason || "element not found"}). Please inform the user clearly that the action could not be completed on this page. Do NOT retry the exact same failing action block.`;
       }
@@ -1599,6 +1617,20 @@ To click a button/link:
   "tag": "BUTTON" | "A" | "DIV" | "SPAN"
 }
 \`\`\`
+`;
+    }
+
+    const activeMsgs = updatedMessagesList || messages;
+    const hasExtractedTextInHistory = activeMsgs.some(m => 
+      m.text.includes("Extracted text from page") || m.text.includes("[✓ Extracted text from page")
+    );
+
+    if (hasExtractedTextInHistory) {
+      systemInstructions += `
+CRITICAL RULE ON PAGE CONTENT:
+Extracted page text is ALREADY available in the conversation history above.
+Do NOT output "extract_page_content" or any other JSON action block again!
+Use the extracted text in history to formulate your final text response to the user.
 `;
     }
 
