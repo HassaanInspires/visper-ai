@@ -32,6 +32,9 @@ import { LocalDb } from "./lib/db";
 import { CloudSync } from "./lib/sync";
 import type { DbSession, DbMessage, DbDocument } from "./lib/db";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
+import { detectTaskMode, getModeSystemInstructions, type TaskMode } from "./agents/task-dispatcher";
+import { executeEComAddToCart } from "./tools/ecom-shopping-tool";
+import { executeSilentWebResearch } from "./tools/web-research-tool";
 
 type BgPresetKey = "midnight" | "sunset" | "forest" | "ocean" | "monochrome";
 
@@ -177,6 +180,7 @@ function App() {
   const [youtubeTranscript, setYoutubeTranscript] = useState<Array<{ text: string; start: number; duration: number }> | null>(null);
   const [youtubeDescription, setYoutubeDescription] = useState("");
   const [isYoutubeHelperOpen, setIsYoutubeHelperOpen] = useState(false);
+  const [selectedTaskMode, setSelectedTaskMode] = useState<TaskMode>("auto");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -188,6 +192,11 @@ function App() {
 
   const activeModelRef = useRef(activeModel);
   const apiKeysRef = useRef(apiKeys);
+  const taskModeRef = useRef<TaskMode>(selectedTaskMode);
+
+  useEffect(() => {
+    taskModeRef.current = selectedTaskMode;
+  }, [selectedTaskMode]);
 
   useEffect(() => {
     activeModelRef.current = activeModel;
@@ -1296,6 +1305,47 @@ ${desc || "No description available."}`;
         }
       }
 
+      // A2. Dedicated E-Commerce Add to Cart Action
+      else if (data.action === "ecom_add_to_cart") {
+        const logMsg = await LocalDb.addMessage(sessionId, "assistant", `[🛒 ECom Cart Add: Size "${data.size || "Default"}"]`);
+        runningMsgs = [...runningMsgs, logMsg];
+        setMessages([...runningMsgs]);
+
+        try {
+          const res = await executeEComAddToCart(data.size, data.quantity || 1);
+          const resMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${res.message}]`);
+          runningMsgs = [...runningMsgs, resMsg];
+          setMessages([...runningMsgs]);
+          if (res.success) successCount++;
+          else failCount++;
+        } catch (err: any) {
+          const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
+          runningMsgs = [...runningMsgs, errMsg];
+          setMessages([...runningMsgs]);
+          failCount++;
+        }
+      }
+
+      // A3. Dedicated Silent Web Research Action
+      else if (data.action === "silent_research" && data.query) {
+        const logMsg = await LocalDb.addMessage(sessionId, "assistant", `[🔍 Silent Background Research: "${data.query}"]`);
+        runningMsgs = [...runningMsgs, logMsg];
+        setMessages([...runningMsgs]);
+
+        try {
+          const res = await executeSilentWebResearch(data.query, data.maxSources || 5);
+          const resMsg = await LocalDb.addMessage(sessionId, "assistant", res.markdownMatrix);
+          runningMsgs = [...runningMsgs, resMsg];
+          setMessages([...runningMsgs]);
+          successCount++;
+        } catch (err: any) {
+          const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ Research Error: ${err.message}]`);
+          runningMsgs = [...runningMsgs, errMsg];
+          setMessages([...runningMsgs]);
+          failCount++;
+        }
+      }
+
       // B. Legacy DOM interaction (fill, click, focus, scroll, etc.)
       else if (data.action === "dom_interact" && data.domAction) {
         // Deduplicate consecutive extract_page_content calls
@@ -1528,9 +1578,14 @@ ${desc || "No description available."}`;
     streamingIdRef.current = aiMsgId;
     streamingSessionIdRef.current = sessionId;
 
+    // Task Mode Router: resolve effective mode (auto-detected or manual override)
+    const effectiveMode = taskModeRef.current === "auto" ? detectTaskMode(window.location.href, userPrompt) : taskModeRef.current;
+    const modeInstructions = getModeSystemInstructions(effectiveMode);
+
     // 1. Build system instructions dynamically based on active page capabilities
     let systemInstructions = `You are Visper, a premium browser copilot assistant.
 You can interact with the active webpage or control the browser.
+${modeInstructions}
 
 RULES:
 - If the user asks you to perform actions on a page (fill form, click button, etc.) or control tabs/navigation, ONLY output JSON action blocks — do NOT write explanatory text.
@@ -1985,6 +2040,23 @@ User Query: ${userPrompt}`;
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Task Mode Selector Pill */}
+            <select
+              value={selectedTaskMode}
+              onChange={(e) => setSelectedTaskMode(e.target.value as TaskMode)}
+              className={`px-2 py-1 text-[10px] font-bold rounded-xl border appearance-none cursor-pointer transition-all ${
+                theme === 'light' ? 'bg-black/5 text-zinc-800 border-zinc-200 hover:bg-black/10' : 'bg-white/5 text-zinc-200 border-white/10 hover:bg-white/10'
+              }`}
+              title="Select AI Task Mode (Auto detects automatically or manual override)"
+            >
+              <option value="auto" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>⚡ Auto Mode</option>
+              <option value="chat" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>💬 Chat</option>
+              <option value="shopping" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>🛒 Shopping</option>
+              <option value="research" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>🔍 Research</option>
+              <option value="youtube" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>📹 YouTube</option>
+              <option value="writer" className={theme === 'light' ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}>✍️ Writer</option>
+            </select>
+
             {/* Active Model Indicator Badge */}
             <div className={`flex flex-col items-end px-3 py-1 rounded-xl border ${
               activeModel === "gemini-nano" && !isLocalAiAvailable

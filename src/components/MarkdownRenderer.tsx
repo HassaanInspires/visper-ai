@@ -49,11 +49,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme 
           );
         }
 
-        // Render regular text segment (parse paragraphs and bullet lists)
+        // Render regular text segment (parse paragraphs, bullet lists, and GFM tables)
         const lines = part.split("\n");
         const renderedElements: React.ReactNode[] = [];
         let listItems: React.ReactNode[] = [];
         let inList = false;
+
+        let tableLines: string[] = [];
+        let inTable = false;
 
         const flushList = (key: string | number) => {
           if (listItems.length > 0) {
@@ -67,8 +70,71 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme 
           }
         };
 
+        const flushTable = (key: string | number) => {
+          if (tableLines.length >= 2) {
+            const tableKey = `table-${key}`;
+            const parsedRows = tableLines.map(rowStr => 
+              rowStr
+                .split("|")
+                .map(c => c.trim())
+                .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1 || (arr.length === 1))
+            );
+
+            // First row is header, second row is divider
+            const headerRow = parsedRows[0] || [];
+            const bodyRows = parsedRows.slice(2).filter(row => row.length > 0 && row.some(cell => cell.trim() !== ""));
+
+            const thBg = isDark ? "bg-white/10 text-white border-white/10" : "bg-zinc-200/70 text-zinc-900 border-zinc-300";
+            const tdBorder = isDark ? "border-white/10" : "border-zinc-200";
+            const rowHover = isDark ? "hover:bg-white/5" : "hover:bg-zinc-50";
+
+            renderedElements.push(
+              <div key={tableKey} className="my-3 overflow-x-auto rounded-lg border border-white/10 shadow-sm select-text">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className={thBg}>
+                      {headerRow.map((cell, cIdx) => (
+                        <th key={cIdx} className="px-3 py-2 font-semibold border-b border-white/10 whitespace-nowrap">
+                          {parseInlineFormatting(cell, isDark)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bodyRows.map((row, rIdx) => (
+                      <tr key={rIdx} className={`border-b transition-colors ${tdBorder} ${rowHover}`}>
+                        {row.map((cell, cIdx) => (
+                          <td key={cIdx} className="px-3 py-2 text-xs leading-normal">
+                            {parseInlineFormatting(cell, isDark)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
+          tableLines = [];
+          inTable = false;
+        };
+
         lines.forEach((line, lineIdx) => {
           const trimmed = line.trim();
+
+          // Table line matching (starts/ends with | or has at least 2 |)
+          const isTableLine = (trimmed.startsWith("|") && trimmed.endsWith("|")) || (trimmed.includes("|") && trimmed.split("|").length >= 3);
+
+          if (isTableLine) {
+            if (inList) flushList(lineIdx);
+            inTable = true;
+            tableLines.push(trimmed);
+            return;
+          }
+
+          if (inTable) {
+            flushTable(lineIdx);
+          }
 
           // 1. Bullet list matching
           if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
@@ -159,10 +225,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme 
           );
         });
 
-        // Flush list at the end of parts if necessary
-        if (inList) {
-          flushList(index);
-        }
+        // Flush list or table at the end of lines if necessary
+        if (inList) flushList(index);
+        if (inTable) flushTable(index);
 
         return <div key={index}>{renderedElements}</div>;
       })}
