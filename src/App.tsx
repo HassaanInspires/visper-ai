@@ -277,8 +277,10 @@ function App() {
     const handleOcrMessage = (message: any) => {
       if (message.type === "OCR_REGION_SELECTED") {
         chrome.tabs.captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT, { format: "png" }, (dataUrl) => {
-          if (!dataUrl) {
-            console.error("Failed to capture tab screenshot.");
+          if (chrome.runtime.lastError || !dataUrl) {
+            const reason = chrome.runtime.lastError?.message || "No screenshot data returned.";
+            console.error("Tab capture failed:", reason);
+            alert(`Could not capture the screen: ${reason}`);
             return;
           }
           cropImage(dataUrl, message.x, message.y, message.width, message.height, message.dpr);
