@@ -629,6 +629,18 @@ chrome.runtime.onMessage.addListener((
           world: "MAIN",
           func: () => {
             try {
+              // 1. Try movie_player getPlayerResponse() API
+              const moviePlayer = document.querySelector("#movie_player") as any;
+              if (moviePlayer && typeof moviePlayer.getPlayerResponse === "function") {
+                const playerResp = moviePlayer.getPlayerResponse();
+                if (playerResp && playerResp.videoDetails) return JSON.stringify(playerResp);
+              }
+              // 2. Try ytd-watch-flexy element playerData
+              const watchFlexy = document.querySelector("ytd-watch-flexy") as any;
+              if (watchFlexy && watchFlexy.playerData && watchFlexy.playerData.videoDetails) {
+                return JSON.stringify(watchFlexy.playerData);
+              }
+              // 3. Fallback to global window.ytInitialPlayerResponse
               // @ts-ignore
               return window.ytInitialPlayerResponse ? JSON.stringify(window.ytInitialPlayerResponse) : null;
             } catch (e) {

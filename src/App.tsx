@@ -1248,11 +1248,19 @@ ${desc || "No description available."}`;
       if (!blockText.startsWith('{')) continue; // skip non-JSON blocks (code examples, etc.)
       try {
         const parsed = JSON.parse(blockText);
+        if (parsed.domAction === "extract" || parsed.domAction === "extract_content") {
+          parsed.domAction = "extract_page_content";
+        }
         if (parsed.action) actionBlocks.push(parsed);
       } catch (e) {
         // JSON is incomplete (stream was truncated) — try to repair it
         const repaired = tryRepairJson(blockText);
-        if (repaired && repaired.action) actionBlocks.push(repaired);
+        if (repaired) {
+          if (repaired.domAction === "extract" || repaired.domAction === "extract_content") {
+            repaired.domAction = "extract_page_content";
+          }
+          if (repaired.action) actionBlocks.push(repaired);
+        }
       }
     }
 

@@ -569,41 +569,53 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
           return;
         }
 
-        let targetTrack = captionTracks.find((track: any) => track.languageCode === "en");
-        if (!targetTrack) {
-          targetTrack = captionTracks[0];
-        }
+        let transcript: { text: string; start: number; duration: number }[] = [];
 
-        if (!targetTrack || !targetTrack.baseUrl) {
-          sendResponse({ success: false, error: "Transcript track has no valid URL." });
-          return;
-        }
+        // Try candidate tracks in order: English -> Urdu -> Auto-generated -> Any track
+        const candidateTracks = [
+          ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur"),
+          ...captionTracks
+        ];
 
-        const res = await fetch(targetTrack.baseUrl);
-        const xmlText = await res.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-        const textNodes = xmlDoc.getElementsByTagName("text");
-        const transcript: { text: string; start: number; duration: number }[] = [];
-        
-        for (let i = 0; i < textNodes.length; i++) {
-          const node = textNodes[i];
-          const text = node.textContent || "";
-          const start = parseFloat(node.getAttribute("start") || "0");
-          const duration = parseFloat(node.getAttribute("dur") || "0");
-          const cleanText = text
-            .replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&apos;/g, "'");
-          transcript.push({ text: cleanText, start, duration });
+        for (const track of candidateTracks) {
+          if (!track || !track.baseUrl) continue;
+          try {
+            const res = await fetch(track.baseUrl);
+            if (!res.ok) continue;
+            const rawText = await res.text();
+            
+            // Try parsing XML format (<text start="0">...</text>)
+            if (rawText.includes("<text")) {
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(rawText, "text/xml");
+              const textNodes = xmlDoc.getElementsByTagName("text");
+              for (let i = 0; i < textNodes.length; i++) {
+                const node = textNodes[i];
+                const text = node.textContent || "";
+                const start = parseFloat(node.getAttribute("start") || "0");
+                const duration = parseFloat(node.getAttribute("dur") || "0");
+                const cleanText = text
+                  .replace(/&amp;/g, "&")
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#39;/g, "'")
+                  .replace(/&apos;/g, "'")
+                  .trim();
+                if (cleanText) {
+                  transcript.push({ text: cleanText, start, duration });
+                }
+              }
+              if (transcript.length > 0) break;
+            }
+          } catch (e) {
+            console.warn("Failed to fetch caption track:", e);
+          }
         }
 
         sendResponse({
           success: true,
-          transcript,
+          transcript: transcript.length > 0 ? transcript : null,
           title: videoTitle,
           videoId: videoId,
           description: description
