@@ -613,6 +613,19 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
           }
         }
 
+        if (transcript.length === 0 && captionTracks && captionTracks.length > 0) {
+          try {
+            const bgRes: any = await new Promise(res => {
+              chrome.runtime.sendMessage({ type: "FETCH_YOUTUBE_CAPTION_BACKGROUND", captionTracks }, res);
+            });
+            if (bgRes && bgRes.success && bgRes.transcript) {
+              transcript = bgRes.transcript;
+            }
+          } catch (e) {
+            console.warn("Background caption fetch fallback failed:", e);
+          }
+        }
+
         sendResponse({
           success: true,
           transcript: transcript.length > 0 ? transcript : null,

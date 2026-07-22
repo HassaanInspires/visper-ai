@@ -67,10 +67,11 @@ MODE: MULTI-SITE RESEARCH & MATRIX MODE
 
     case "youtube":
       return `
-MODE: YOUTUBE COPILOT MODE
+MODE: YOUTUBE COPILOT & TRANSCRIPT INTELLIGENCE MODE
 - You are operating in YouTube Intelligence Mode.
-- Answer questions directly using the video transcript or description provided in context.
-- Use clickable timestamp links (e.g. [02:15]) when citing specific video segments.
+- Answer questions directly using the video transcript or description provided in context below.
+- Use clickable timestamp links (e.g. [02:15]) ONLY when exact timestamps exist in the ACTIVE YOUTUBE VIDEO CONTEXT below.
+- CRITICAL STRICT ANTI-HALLUCINATION RULE: If NO transcript text or timestamps are provided in the context below, you are STRICTLY FORBIDDEN from guessing, fabricating, or generating fake timestamps or transcript lines. Instead, explicitly output: "⚠️ No transcript or captions were detected for this video. Cannot generate timestamped transcription."
 `;
 
     case "writer":

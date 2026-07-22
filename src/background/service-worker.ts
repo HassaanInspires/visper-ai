@@ -660,6 +660,60 @@ chrome.runtime.onMessage.addListener((
     return true; // keeps port active
   }
 
+  if (message.type === "FETCH_YOUTUBE_CAPTION_BACKGROUND") {
+    (async () => {
+      try {
+        const captionTracks = message.captionTracks || [];
+        if (captionTracks.length === 0) {
+          sendResponse({ success: false, error: "No caption tracks provided." });
+          return;
+        }
+
+        const transcript: { text: string; start: number; duration: number }[] = [];
+        const candidateTracks = [
+          ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur"),
+          ...captionTracks
+        ];
+
+        for (const track of candidateTracks) {
+          if (!track || !track.baseUrl) continue;
+          try {
+            const res = await fetch(track.baseUrl);
+            if (!res.ok) continue;
+            const rawText = await res.text();
+            
+            if (rawText.includes("<text")) {
+              const matches = rawText.matchAll(/<text\s+start="([\d.]+)"\s+(?:dur="([\d.]+)"\s+)?(?:[^>]*>)([\s\S]*?)<\/text>/gi);
+              for (const match of matches) {
+                const start = parseFloat(match[1] || "0");
+                const duration = parseFloat(match[2] || "0");
+                const text = (match[3] || "")
+                  .replace(/&amp;/g, "&")
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#39;/g, "'")
+                  .replace(/&apos;/g, "'")
+                  .trim();
+                if (text) {
+                  transcript.push({ text, start, duration });
+                }
+              }
+              if (transcript.length > 0) break;
+            }
+          } catch (e) {
+            console.warn("Background caption fetch error:", e);
+          }
+        }
+
+        sendResponse({ success: true, transcript: transcript.length > 0 ? transcript : null });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === "GET_EMBEDDING") {
     (async () => {
       try {
