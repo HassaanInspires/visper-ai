@@ -17,6 +17,25 @@ interface WebMCPRegistry {
 let activePageTools: RegisteredPageTool[] = [];
 let pageRegistryName = "";
 
+// Safe storage reader that guards against extension context invalidation (e.g. after extension reload)
+function safeGetStorage(keys: string[], callback: (result: Record<string, any>) => void): void {
+  try {
+    if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+      chrome.storage.local.get(keys, (res) => {
+        if (chrome.runtime?.lastError) {
+          callback({});
+        } else {
+          callback(res || {});
+        }
+      });
+    } else {
+      callback({});
+    }
+  } catch (e) {
+    callback({});
+  }
+}
+
 // 1. WebMCP Discovery: Listen for custom events dispatched by the page-side application
 window.addEventListener("webmcp-register", (event: any) => {
   const detail = event.detail as WebMCPRegistry;
@@ -213,7 +232,7 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
 
 async function getYoutubePlayerResponse(): Promise<any> {
   try {
-    const response = await chrome.runtime.sendMessage({ type: "GET_MAIN_WORLD_YT_RESPONSE" });
+    const response = await chrome.runtime.sendMessage({ type: "GET_MAIN_WORLD_YT_RESPONSE" }).catch(() => null);
     if (response && response.success && response.result) {
       return response.result;
     }
@@ -791,7 +810,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
       shadowRoot = tooltipHost.attachShadow({ mode: "closed" });
 
       // Fetch user theme settings to style accordingly
-      chrome.storage.local.get(["theme"], (res) => {
+      safeGetStorage(["theme"], (res) => {
         const theme = res.theme || "dark";
         const isDark = theme === "dark";
 
@@ -985,7 +1004,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
 
         const shadow = sparkleHost.attachShadow({ mode: "closed" });
 
-        chrome.storage.local.get(["theme"], (res) => {
+        safeGetStorage(["theme"], (res) => {
           const theme = res.theme || "dark";
           const isDark = theme === "dark";
 
@@ -1067,7 +1086,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
 
     const shadow = capsuleHost.attachShadow({ mode: "closed" });
 
-    chrome.storage.local.get(["theme", "activeModel", "apiKeys"], (res) => {
+    safeGetStorage(["theme", "activeModel", "apiKeys"], (res) => {
       const theme = res.theme || "dark";
       const isDark = theme === "dark";
       const activeModel = res.activeModel || "openrouter";
