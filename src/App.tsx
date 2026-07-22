@@ -186,6 +186,17 @@ function App() {
   const currentSearchSourcesRef = useRef<any[]>([]);
   const currentOcrProviderRef = useRef<string | null>(null);
 
+  const activeModelRef = useRef(activeModel);
+  const apiKeysRef = useRef(apiKeys);
+
+  useEffect(() => {
+    activeModelRef.current = activeModel;
+  }, [activeModel]);
+
+  useEffect(() => {
+    apiKeysRef.current = apiKeys;
+  }, [apiKeys]);
+
   // 1. Initialize IndexedDB and load sessions
   useEffect(() => {
     const initializeApp = async () => {
@@ -198,12 +209,20 @@ function App() {
         chrome.storage.local.get(
           ["apiKeys", "theme", "bgPreset", "enableCloudSync", "isRagEnabled", "activeModel", "fetchedModels"], 
           (res) => {
-            if (res.apiKeys) setApiKeys(prev => ({ ...prev, ...(res.apiKeys as typeof apiKeys) }));
+            if (res.apiKeys) {
+              const keysObj = res.apiKeys as typeof apiKeys;
+              setApiKeys(prev => ({ ...prev, ...keysObj }));
+              apiKeysRef.current = keysObj;
+            }
             if (res.theme) setTheme(res.theme as "light" | "dark");
             if (res.bgPreset) setBgPreset(res.bgPreset as BgPresetKey);
             if (res.enableCloudSync !== undefined) setEnableCloudSync(!!res.enableCloudSync);
             if (res.isRagEnabled !== undefined) setIsRagEnabled(!!res.isRagEnabled);
-            if (res.activeModel) setActiveModel(res.activeModel as string);
+            if (res.activeModel) {
+              const modelStr = res.activeModel as string;
+              setActiveModel(modelStr);
+              activeModelRef.current = modelStr;
+            }
             if (res.fetchedModels) {
               setFetchedModels(prev => ({ ...prev, ...(res.fetchedModels as typeof fetchedModels) }));
             }
@@ -1461,9 +1480,12 @@ ${desc || "No description available."}`;
     imageAttachment?: string, 
     searchSources?: any[]
   ) => {
-    // Cache search sources in a ref for saving when stream completes
+    // Cache search sources and read fresh model/keys from refs to eliminate stale closure bugs in recursive agent loops
     currentSearchSourcesRef.current = searchSources || [];
     currentOcrProviderRef.current = null;
+
+    const currentModel = activeModelRef.current;
+    const currentKeys = apiKeysRef.current;
 
     // Placeholder message for assistant stream
     const aiMsgId = Math.random().toString();
@@ -1489,6 +1511,7 @@ RULES:
 - ALL JSON blocks in your response will be executed sequentially and automatically.
 - Do NOT re-explain what you are doing — just output the JSON blocks.
 - If it is a normal conversation (not a page action request), answer normally without any JSON.
+- If the user asks to search for something on Google or visit an ecommerce website, PREFER using "browser_action" with "navigate" or "open_tab" and a direct search URL (e.g. "https://www.google.com/search?q=query") instead of manually filling search inputs.
 - At the very end of your response, please suggest 3 relevant follow-up questions the user might ask next. Format them as a JSON array inside a tag like this: <suggested_questions>["Question 1", "Question 2", "Question 3"]</suggested_questions>. Ensure the questions are brief (less than 8 words each) and highly contextually relevant.
 
 BROWSER CONTROL CAPABILITIES:
@@ -1582,7 +1605,7 @@ To click a button/link:
     let finalPrompt = userPrompt;
 
     // 2. Local Semantic Search / RAG Injection
-    if (isRagEnabled && activeModel !== "gemini-nano") {
+    if (isRagEnabled && currentModel !== "gemini-nano") {
       try {
         console.log("Computing RAG search query embedding...");
         const queryEmbed = await new Promise<any>((resolve, reject) => {
@@ -1625,7 +1648,7 @@ To click a button/link:
     finalPrompt = `${systemInstructions}\n\nInput query: ${finalPrompt}`;
 
     // 3. Model Routing
-    if (activeModel === "gemini-nano") {
+    if (currentModel === "gemini-nano") {
       try {
         // @ts-ignore
         if (typeof ai === "undefined" || !ai.languageModel) {
@@ -1692,8 +1715,8 @@ To click a button/link:
         type: "GENERATE_STREAM",
         prompt: finalPrompt,
         history: historyForStream,
-        model: activeModel,
-        keys: apiKeys,
+        model: currentModel,
+        keys: currentKeys,
         image: imageAttachment
       }).catch(err => {
         setMessages(prev => prev.map(msg => 

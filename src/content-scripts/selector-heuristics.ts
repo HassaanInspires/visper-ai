@@ -498,7 +498,20 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
         inputEl.value = message.value || "";
         inputEl.dispatchEvent(new Event("input", { bubbles: true }));
         inputEl.dispatchEvent(new Event("change", { bubbles: true }));
-        sendResponse({ success: true, message: "Filled input value successfully.", element: desc });
+        
+        // Dispatch Enter key and form submit for search inputs
+        if (inputEl.form) {
+          try {
+            if (inputEl.form.requestSubmit) inputEl.form.requestSubmit();
+            else inputEl.form.submit();
+          } catch (e) {
+            // Fallback to keydown
+            inputEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+          }
+        } else {
+          inputEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+        }
+        sendResponse({ success: true, message: "Filled input value and triggered submission.", element: desc });
       } else if (message.action === "focus") {
         element.focus();
         sendResponse({ success: true, message: "Focused element successfully.", element: desc });
