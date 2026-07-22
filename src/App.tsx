@@ -180,6 +180,7 @@ function App() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const streamingIdRef = useRef<string | null>(null);
+  const streamingSessionIdRef = useRef<string | null>(null);
   const agentLoopCountRef = useRef(0);
   const currentSearchSourcesRef = useRef<any[]>([]);
 
@@ -1054,7 +1055,7 @@ ${desc || "No description available."}`;
   useEffect(() => {
     const handleStreamMessage = (message: { type: string; text?: string; error?: string; target?: string }) => {
       if (message.target === "inline-composer") return;
-      if (!streamingIdRef.current || !activeSession) return;
+      if (!streamingIdRef.current || !streamingSessionIdRef.current) return;
 
       if (message.type === "STREAM_CHUNK" && message.text) {
         const textToAppend = message.text;
@@ -1065,11 +1066,12 @@ ${desc || "No description available."}`;
         ));
       } else if (message.type === "STREAM_COMPLETE") {
         const completedId = streamingIdRef.current;
+        const completedSessionId = streamingSessionIdRef.current!;
         setMessages(prev => {
           const finalMsg = prev.find(m => m.id === completedId);
           if (finalMsg) {
             LocalDb.addMessage(
-              activeSession.id,
+              completedSessionId,
               "assistant",
               finalMsg.text,
               undefined,
@@ -1080,7 +1082,7 @@ ${desc || "No description available."}`;
                 setMessages(currentMsgs => currentMsgs.map(m => m.id === completedId ? saved : m));
                 
                 // Execute potential agent automation action loops
-                handleAgentAction(saved.text, prev.map(m => m.id === completedId ? saved : m));
+                handleAgentAction(saved.text, prev.map(m => m.id === completedId ? saved : m), completedSessionId);
 
                 triggerLocalEmbedding(saved.id, saved.text).then(() => {
                   if (enableCloudSync) CloudSync.sync().catch(console.error);
@@ -1201,7 +1203,7 @@ ${desc || "No description available."}`;
     }
   };
 
-  const handleAgentAction = async (text: string, currentMessages: DbMessage[]) => {
+  const handleAgentAction = async (text: string, currentMessages: DbMessage[], sessionId: string) => {
     const actionBlocks: any[] = [];
 
     // 1. Try finding markdown code blocks — including UNCLOSED ones at stream end
@@ -1238,7 +1240,7 @@ ${desc || "No description available."}`;
       }
     }
 
-    if (actionBlocks.length === 0 || !activeSession) return;
+    if (actionBlocks.length === 0 || !sessionId) return;
 
     let runningMsgs = [...currentMessages];
 
@@ -1247,17 +1249,17 @@ ${desc || "No description available."}`;
 
       // A. WebMCP registered tool call
       if (data.action === "call_tool" && data.tool) {
-        const logMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[Tool Call: ${data.tool}]`);
+        const logMsg = await LocalDb.addMessage(sessionId, "assistant", `[Tool Call: ${data.tool}]`);
         runningMsgs = [...runningMsgs, logMsg];
         setMessages([...runningMsgs]);
 
         try {
           const result = await callPageTool(data.tool, data.arguments || {});
-          const resultMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[Tool Result: ${JSON.stringify(result)}]`);
+          const resultMsg = await LocalDb.addMessage(sessionId, "assistant", `[Tool Result: ${JSON.stringify(result)}]`);
           runningMsgs = [...runningMsgs, resultMsg];
           setMessages([...runningMsgs]);
         } catch (err: any) {
-          const errMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[Tool Error: ${err.message}]`);
+          const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[Tool Error: ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
         }
@@ -1266,7 +1268,7 @@ ${desc || "No description available."}`;
       // B. Legacy DOM interaction (fill, click, focus, scroll, etc.)
       else if (data.action === "dom_interact" && data.domAction) {
         const label = data.text || data.selector || data.tag || "element";
-        const logMsg = await LocalDb.addMessage(activeSession.id, "assistant",
+        const logMsg = await LocalDb.addMessage(sessionId, "assistant",
           `[DOM ${data.domAction}: "${label}"${data.value ? ` → "${data.value}"` : ""}]`
         );
         runningMsgs = [...runningMsgs, logMsg];
@@ -1274,11 +1276,11 @@ ${desc || "No description available."}`;
 
         try {
           const result: any = await performDomAction(data.domAction, data.tag, data.text, data.selector, data.value);
-          const successMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[✓ ${result.message || "Done"}]`);
+          const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${result.message || "Done"}]`);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
         } catch (err: any) {
-          const errMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[✗ ${err.message}]`);
+          const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
         }
@@ -1292,7 +1294,7 @@ ${desc || "No description available."}`;
         const actionType = data.browserAction;
         const targetUrl = data.url || "";
         
-        const logMsg = await LocalDb.addMessage(activeSession.id, "assistant",
+        const logMsg = await LocalDb.addMessage(sessionId, "assistant",
           `[Browser ${actionType}${targetUrl ? ` → "${targetUrl}"` : ""}]`
         );
         runningMsgs = [...runningMsgs, logMsg];
@@ -1382,11 +1384,11 @@ ${desc || "No description available."}`;
             throw new Error(`Unsupported browser action: ${actionType}`);
           }
 
-          const successMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[✓ ${message}]`);
+          const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${message}]`);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
         } catch (err: any) {
-          const errMsg = await LocalDb.addMessage(activeSession.id, "assistant", `[✗ ${err.message}]`);
+          const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
           setMessages([...runningMsgs]);
         }
@@ -1396,7 +1398,7 @@ ${desc || "No description available."}`;
     }
 
     // Final summary — re-trigger the model to process tool results and answer the user
-    const doneMsg = await LocalDb.addMessage(activeSession.id, "assistant",
+    const doneMsg = await LocalDb.addMessage(sessionId, "assistant",
       `✅ Done — executed ${actionBlocks.length} action${actionBlocks.length > 1 ? "s" : ""} on the page.`
     );
     runningMsgs = [...runningMsgs, doneMsg];
@@ -1408,12 +1410,12 @@ ${desc || "No description available."}`;
       console.log(`Agent loop step ${agentLoopCountRef.current}/5. Re-triggering model to formulate final reply...`);
       executeModelStream(
         "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.",
-        activeSession.id,
+        sessionId,
         runningMsgs
       );
     } else {
       console.warn("Max agent loop depth of 5 reached. Stopping recursion.");
-      const limitMsg = await LocalDb.addMessage(activeSession.id, "assistant",
+      const limitMsg = await LocalDb.addMessage(sessionId, "assistant",
         `⚠️ Maximum agent loop limit reached (5 steps). Stopping further actions.`
       );
       setMessages(prev => [...prev, limitMsg]);
@@ -1442,6 +1444,7 @@ ${desc || "No description available."}`;
     setMessages(prev => [...prev, aiPlaceholder]);
     setIsGenerating(true);
     streamingIdRef.current = aiMsgId;
+    streamingSessionIdRef.current = sessionId;
 
     // 1. Build system instructions dynamically based on active page capabilities
     let systemInstructions = `You are Visper, a premium browser copilot assistant.
@@ -1627,7 +1630,7 @@ To click a button/link:
         setMessages(afterNanoMsgs);
         
         // Execute potential agent loops with up-to-date history
-        handleAgentAction(saved.text, afterNanoMsgs);
+        handleAgentAction(saved.text, afterNanoMsgs, sessionId);
 
         triggerLocalEmbedding(saved.id, saved.text).then(() => {
           if (enableCloudSync) CloudSync.sync().catch(console.error);
