@@ -271,6 +271,62 @@ async function getYoutubePlayerResponse(): Promise<any> {
   return null;
 }
 
+async function scrapeYoutubeDomTranscript(): Promise<{ text: string; start: number; duration: number }[] | null> {
+  try {
+    let segments = Array.from(document.querySelectorAll("ytd-transcript-segment-renderer, .ytd-transcript-segment-renderer"));
+    
+    if (segments.length === 0) {
+      // 1. Expand description if collapsed
+      const expandBtn = document.querySelector("#expand, #description-inline-expander #expand, ytd-text-inline-expander #expand") as HTMLElement;
+      if (expandBtn) {
+        expandBtn.click();
+        await new Promise(r => setTimeout(r, 250));
+      }
+
+      // 2. Click "Show transcript" button in YouTube UI
+      const allBtns = Array.from(document.querySelectorAll("button, ytd-button-renderer, a, div[role='button']"));
+      const transcriptBtn = allBtns.find(el => {
+        const txt = (el.textContent || "").toLowerCase();
+        const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+        return txt.includes("show transcript") || txt.includes("transcript") || aria.includes("transcript") || txt.includes("ٹرانسکریپٹ");
+      }) as HTMLElement;
+
+      if (transcriptBtn) {
+        transcriptBtn.click();
+        await new Promise(r => setTimeout(r, 600));
+        segments = Array.from(document.querySelectorAll("ytd-transcript-segment-renderer, .ytd-transcript-segment-renderer"));
+      }
+    }
+
+    if (segments.length === 0) return null;
+
+    const result: { text: string; start: number; duration: number }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const timeEl = seg.querySelector(".segment-timestamp, [class*='timestamp']");
+      const textEl = seg.querySelector(".segment-text, [class*='segment-text']");
+      
+      const timeStr = timeEl?.textContent?.trim() || "0:00";
+      const textStr = textEl?.textContent?.trim() || "";
+
+      const parts = timeStr.split(":").map(p => parseFloat(p) || 0);
+      let seconds = 0;
+      if (parts.length === 3) seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      else if (parts.length === 2) seconds = parts[0] * 60 + parts[1];
+      else seconds = parts[0] || 0;
+
+      if (textStr) {
+        result.push({ text: textStr, start: seconds, duration: 2 });
+      }
+    }
+
+    return result.length > 0 ? result : null;
+  } catch (e) {
+    console.warn("scrapeYoutubeDomTranscript error:", e);
+    return null;
+  }
+}
+
 function startOcrCapture() {
   const overlay = document.createElement("div");
   overlay.id = "visper-ocr-overlay";
@@ -571,7 +627,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
 
         let transcript: { text: string; start: number; duration: number }[] = [];
 
-        // Try candidate tracks in order: English -> Urdu -> Auto-generated -> Any track
+        // Candidate track search in order: English -> Urdu -> Any language (Arabic, Spanish, Hindi, Turkish, French, German, etc.)
         const candidateTracks = [
           ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur"),
           ...captionTracks
@@ -613,6 +669,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
           }
         }
 
+        // Fallback 1: Try background service worker caption fetcher (bypasses CORS completely)
         if (transcript.length === 0 && captionTracks && captionTracks.length > 0) {
           try {
             const bgRes: any = await new Promise(res => {
@@ -623,6 +680,14 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
             }
           } catch (e) {
             console.warn("Background caption fetch fallback failed:", e);
+          }
+        }
+
+        // Fallback 2: Native YouTube UI DOM Clicker & Scraper (clicks "Show transcript" button)
+        if (transcript.length === 0) {
+          const domTranscript = await scrapeYoutubeDomTranscript();
+          if (domTranscript && domTranscript.length > 0) {
+            transcript = domTranscript;
           }
         }
 
