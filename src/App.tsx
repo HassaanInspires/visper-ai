@@ -1269,6 +1269,7 @@ ${desc || "No description available."}`;
 
     let successCount = 0;
     let failCount = 0;
+    let openedTabCount = 0;
     let lastErrorReason = "";
 
     // Execute every action block in sequence
@@ -1349,6 +1350,13 @@ ${desc || "No description available."}`;
           let message = "Completed successfully";
           if (actionType === "open_tab") {
             if (!targetUrl) throw new Error("URL is required to open a new tab.");
+            if (openedTabCount >= 1) {
+              console.log("Throttling open_tab to max 1 per turn.");
+              const skipMsg = await LocalDb.addMessage(sessionId, "assistant", `[ℹ️ Limited to 1 new tab per turn to keep browser clean.]`);
+              runningMsgs = [...runningMsgs, skipMsg];
+              setMessages([...runningMsgs]);
+              continue;
+            }
             // If it has any scheme (e.g. about:, chrome://, mailto:), use as-is; otherwise prepend https://
             const finalUrl = targetUrl.match(/^[a-z0-9.+-]+:/i) ? targetUrl : `https://${targetUrl}`;
             await new Promise<void>((resolve, reject) => {
@@ -1357,6 +1365,7 @@ ${desc || "No description available."}`;
                 else resolve();
               });
             });
+            openedTabCount++;
             message = `Opened new tab with: ${finalUrl}`;
           }
           else if (actionType === "navigate") {

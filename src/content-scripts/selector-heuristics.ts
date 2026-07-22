@@ -84,7 +84,7 @@ function isElementVisible(el: HTMLElement): boolean {
 
 // 2. Semantic Element Matcher: Resolves elements on legacy pages without formal WebMCP integration
 function findElementSemantically(tag?: string, text?: string, selector?: string): HTMLElement | null {
-  const targetText = text ? text.trim().toLowerCase() : "";
+  const targetText = text ? text.trim().toLowerCase().replace(/\s+/g, " ") : "";
   const targetTag = tag ? tag.trim().toUpperCase() : "";
 
   // Strategy A: Try matching selector directly
@@ -98,33 +98,68 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
   }
 
   // Strategy B: Match tags and compute semantic relevance score
-  const tagsToSearch = targetTag ? [targetTag] : ["BUTTON", "INPUT", "A", "TEXTAREA", "DIV", "SPAN"];
+  // Include all interactive tags even if targetTag is specified, to catch custom divs, links, labels, and form buttons
+  const allTags = ["BUTTON", "INPUT", "A", "LABEL", "TEXTAREA", "DIV", "SPAN", "SELECT"];
+  const tagsToSearch = targetTag ? [targetTag, ...allTags.filter(t => t !== targetTag)] : allTags;
   const candidates: { el: HTMLElement; score: number }[] = [];
 
+  const isAddToCartQuery = targetText.includes("add to cart") || targetText.includes("add to bag") || targetText.includes("buy now") || targetText === "cart";
+  const isSizeQuery = targetText === "s" || targetText === "m" || targetText === "l" || targetText === "xl" || targetText === "xxl" || targetText === "small" || targetText === "medium" || targetText === "large" || targetText === "extra large";
+
   for (const t of tagsToSearch) {
+    const isPrimaryTag = targetTag ? t === targetTag : true;
+    const tagWeightMultiplier = isPrimaryTag ? 1.0 : 0.8;
     const elements = document.getElementsByTagName(t);
+
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i] as HTMLElement;
       if (!isElementVisible(el)) continue;
 
       let score = 0;
-      const elText = el.textContent?.trim().toLowerCase() || "";
+      const rawText = el.textContent?.trim().toLowerCase().replace(/\s+/g, " ") || "";
       const elAria = el.getAttribute("aria-label")?.trim().toLowerCase() || "";
       const elPlaceholder = el.getAttribute("placeholder")?.trim().toLowerCase() || "";
       const elName = el.getAttribute("name")?.trim().toLowerCase() || "";
+      const elValue = (el as HTMLInputElement).value?.trim().toLowerCase() || el.getAttribute("value")?.trim().toLowerCase() || "";
+      const elDataVal = el.getAttribute("data-value")?.trim().toLowerCase() || el.getAttribute("data-option-value")?.trim().toLowerCase() || "";
       const elId = el.id.toLowerCase();
       const elClass = el.className.toLowerCase();
+      const elDataAction = el.getAttribute("data-action")?.trim().toLowerCase() || "";
+
+      // E-commerce Special Heuristics (Shopify, WooCommerce, Daraz, Magento)
+      if (isAddToCartQuery) {
+        if (elName === "add" || elDataAction === "add-to-cart" || elId.includes("addtocart") || elId.includes("add-to-cart")) {
+          score += 200;
+        }
+        if (elClass.includes("add-to-cart") || elClass.includes("btn-cart") || elClass.includes("product-form__submit")) {
+          score += 160;
+        }
+        if (el.closest("form[action*='/cart']") || el.closest(".product-form")) {
+          score += 80;
+        }
+      }
+
+      if (isSizeQuery) {
+        if (elDataVal === targetText || elValue === targetText || elName.includes("size") || elName.includes("option")) {
+          score += 180;
+        }
+        if (rawText === targetText || rawText === targetText.toUpperCase()) {
+          score += 150;
+        }
+      }
 
       if (targetText) {
         // 1. Direct Content Match
-        if (elText === targetText) score += 100;
-        else if (elText.includes(targetText)) score += 40;
+        if (rawText === targetText) score += 120;
+        else if (rawText.includes(targetText)) score += 60;
 
         // 2. Aria-Label match
-        if (elAria === targetText) score += 120;
-        else if (elAria.includes(targetText)) score += 60;
+        if (elAria === targetText) score += 130;
+        else if (elAria.includes(targetText)) score += 65;
 
-        // 3. Input placeholder match
+        // 3. Input value & placeholder match
+        if (elValue === targetText) score += 110;
+        else if (elValue.includes(targetText)) score += 55;
         if (elPlaceholder === targetText) score += 110;
         else if (elPlaceholder.includes(targetText)) score += 55;
 
@@ -133,8 +168,8 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
         else if (elName.includes(targetText)) score += 45;
 
         // 5. Element details (Id/Class)
-        if (elId && elId.includes(targetText)) score += 20;
-        if (elClass && elClass.includes(targetText)) score += 10;
+        if (elId && elId.includes(targetText)) score += 30;
+        if (elClass && elClass.includes(targetText)) score += 20;
 
         // 5b. Anchor href attribute match (A tags) and Title attribute match
         if (t === "A") {
@@ -144,60 +179,30 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
         const elTitle = el.getAttribute("title")?.trim().toLowerCase() || "";
         if (elTitle && elTitle.includes(targetText)) score += 50;
 
-        // 6. Label-Association Matches (Critical for Form Fields)
-        if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") {
-          // 6a. Explicit label association (for="inputId")
+        // 6. Label-Association Matches (Critical for Form Fields & Radio Pills)
+        if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || t === "LABEL") {
           if (el.id) {
             const labelEl = document.querySelector(`label[for="${el.id}"]`);
             if (labelEl) {
               const labelText = labelEl.textContent?.trim().toLowerCase() || "";
-              if (labelText === targetText) score += 150;
-              else if (labelText.includes(targetText)) score += 75;
+              if (labelText === targetText) score += 160;
+              else if (labelText.includes(targetText)) score += 80;
             }
           }
 
-          // 6b. Implicit parent label association (<label>Text <input></label>)
           const parentLabel = el.closest("label");
           if (parentLabel) {
             const labelText = parentLabel.textContent?.trim().toLowerCase() || "";
-            if (labelText === targetText) score += 130;
-            else if (labelText.includes(targetText)) score += 65;
-          }
-
-          // 6c. Sibling label matching (preceding label element)
-          let prev = el.previousElementSibling;
-          while (prev) {
-            if (prev.tagName === "LABEL") {
-              const labelText = prev.textContent?.trim().toLowerCase() || "";
-              if (labelText === targetText) score += 120;
-              else if (labelText.includes(targetText)) score += 60;
-              break;
-            }
-            prev = prev.previousElementSibling;
-          }
-
-          // 6d. Parent preceding label matching (for custom styled form divs)
-          const parent = el.parentElement;
-          if (parent) {
-            let parentPrev = parent.previousElementSibling;
-            while (parentPrev) {
-              if (parentPrev.tagName === "LABEL") {
-                const labelText = parentPrev.textContent?.trim().toLowerCase() || "";
-                if (labelText === targetText) score += 100;
-                else if (labelText.includes(targetText)) score += 50;
-                break;
-              }
-              parentPrev = parentPrev.previousElementSibling;
-            }
+            if (labelText === targetText) score += 140;
+            else if (labelText.includes(targetText)) score += 70;
           }
         }
       } else {
-        // If no text filter is provided, we just give base weight
         score += 1;
       }
 
       if (score > 0) {
-        candidates.push({ el, score });
+        candidates.push({ el, score: score * tagWeightMultiplier });
       }
     }
   }
