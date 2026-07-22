@@ -1738,10 +1738,10 @@ Use the extracted text in history to formulate your final text response to the u
     if (isRagEnabled && currentModel !== "gemini-nano") {
       try {
         console.log("Computing RAG search query embedding...");
-        const queryEmbed = await new Promise<any>((resolve, reject) => {
+        const queryEmbed = await new Promise<any>((resolve) => {
           chrome.runtime.sendMessage({ type: "GET_EMBEDDING", text: userPrompt }, (response) => {
             if (response && response.success) resolve(response);
-            else reject(new Error(response?.error || "Unknown embedding error."));
+            else resolve(null);
           });
         });
 

@@ -718,14 +718,26 @@ chrome.runtime.onMessage.addListener((
     (async () => {
       try {
         await createOffscreenDocument();
-        const response = await chrome.runtime.sendMessage({
+        // Brief delay to ensure offscreen WASM message listener is registered
+        await new Promise(r => setTimeout(r, 50));
+        let response = await chrome.runtime.sendMessage({
           type: "CALCULATE_EMBEDDING_OFFSCREEN",
           text: message.text
-        });
-        sendResponse(response);
+        }).catch(() => null);
+
+        // Retry once after 250ms if offscreen document was initializing WASM model weights
+        if (!response || !response.success) {
+          await new Promise(r => setTimeout(r, 250));
+          response = await chrome.runtime.sendMessage({
+            type: "CALCULATE_EMBEDDING_OFFSCREEN",
+            text: message.text
+          }).catch(() => null);
+        }
+
+        sendResponse(response || { success: false, error: "Local WASM embedding model initializing." });
       } catch (err: any) {
-        console.error("Service worker embedding forwarding error:", err);
-        sendResponse({ success: false, error: err.message });
+        console.warn("Service worker embedding forwarding info:", err?.message || err);
+        sendResponse({ success: false, error: err?.message || "Embedding unavailable" });
       }
     })();
     return true; // keeps port active
