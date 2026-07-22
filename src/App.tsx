@@ -782,16 +782,42 @@ ${res.text}`;
     if (!youtubeVideoId || !activeSession) return;
 
     const targetSession = activeSession;
-    const userMsg = await LocalDb.addMessage(targetSession.id, "user", `Summarize this YouTube video: "${youtubeTitle}"`);
+    let activeTranscript = youtubeTranscript;
+    let activeTitle = youtubeTitle;
+
+    // On-demand YouTube transcript fetch if not yet in state
+    if (!activeTranscript) {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs[0];
+        if (tab?.id) {
+          const resp: any = await new Promise(r => chrome.tabs.sendMessage(tab.id!, { type: "GET_YOUTUBE_TRANSCRIPT" }, r));
+          if (resp && resp.success) {
+            if (resp.transcript) {
+              activeTranscript = resp.transcript;
+              setYoutubeTranscript(resp.transcript);
+            }
+            if (resp.title) {
+              activeTitle = resp.title;
+              setYoutubeTitle(resp.title);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("On-demand transcript fetch error:", e);
+      }
+    }
+
+    const userMsg = await LocalDb.addMessage(targetSession.id, "user", `Summarize this YouTube video: "${activeTitle}"`);
     const latestMessages = [...messages, userMsg];
     setMessages(latestMessages);
 
     agentLoopCountRef.current = 0;
 
-    if (youtubeTranscript) {
-      const transcriptText = youtubeTranscript.map(t => `[${formatTime(t.start)}] ${t.text}`).join("\n");
-      const summaryPrompt = `Provide a comprehensive structured summary of the YouTube video titled "${youtubeTitle}" using the transcript below.
-Highlight the key topics discussed with timestamps, main arguments, and actionable takeaways in structured bullet points.
+    if (activeTranscript) {
+      const transcriptText = activeTranscript.slice(0, 300).map(t => `[${formatTime(t.start)}] ${t.text}`).join("\n");
+      const summaryPrompt = `Provide a comprehensive structured summary of the YouTube video titled "${activeTitle}" using the transcript below.
+Highlight the key topics discussed with exact clickable timestamps ([mm:ss]), main arguments, and actionable takeaways in structured bullet points.
 
 Transcript:
 ${transcriptText}`;
@@ -802,7 +828,7 @@ ${transcriptText}`;
         if (tab?.id) {
           chrome.tabs.sendMessage(tab.id, { type: "GET_YOUTUBE_TRANSCRIPT" }, (response) => {
             const desc = (response && response.success) ? response.description : "";
-            const summaryPrompt = `Provide a comprehensive structured summary of the YouTube video titled "${youtubeTitle}" using the video description below.
+            const summaryPrompt = `Provide a comprehensive structured summary of the YouTube video titled "${activeTitle}" using the video description below.
 Highlight the main topics and key takeaways in structured bullet points.
 
 Video Description:
@@ -810,7 +836,7 @@ ${desc || "No description available."}`;
             executeModelStream(summaryPrompt, targetSession.id, latestMessages);
           });
         } else {
-          executeModelStream(`Summarize the video titled "${youtubeTitle}".`, targetSession.id, latestMessages);
+          executeModelStream(`Summarize the video titled "${activeTitle}".`, targetSession.id, latestMessages);
         }
       });
     }
