@@ -24,6 +24,7 @@ import {
   X,
   Upload,
   Crop,
+  ImageIcon,
   Play,
   Search
 } from "lucide-react";
@@ -183,6 +184,7 @@ function App() {
   const streamingSessionIdRef = useRef<string | null>(null);
   const agentLoopCountRef = useRef(0);
   const currentSearchSourcesRef = useRef<any[]>([]);
+  const currentOcrProviderRef = useRef<string | null>(null);
 
   // 1. Initialize IndexedDB and load sessions
   useEffect(() => {
@@ -1055,7 +1057,7 @@ ${desc || "No description available."}`;
 
   // Listener for background streaming messages
   useEffect(() => {
-    const handleStreamMessage = (message: { type: string; text?: string; error?: string; target?: string }) => {
+    const handleStreamMessage = (message: { type: string; text?: string; error?: string; target?: string; provider?: string }) => {
       if (message.target === "inline-composer") return;
       if (!streamingIdRef.current || !streamingSessionIdRef.current) return;
 
@@ -1066,6 +1068,8 @@ ${desc || "No description available."}`;
             ? { ...msg, text: msg.text + textToAppend } 
             : msg
         ));
+      } else if (message.type === "OCR_PROVIDER_USED") {
+        currentOcrProviderRef.current = message.provider || null;
       } else if (message.type === "STREAM_COMPLETE") {
         const completedId = streamingIdRef.current;
         const completedSessionId = streamingSessionIdRef.current!;
@@ -1078,7 +1082,8 @@ ${desc || "No description available."}`;
               finalMsg.text,
               undefined,
               undefined,
-              currentSearchSourcesRef.current
+              currentSearchSourcesRef.current,
+              currentOcrProviderRef.current || undefined
             ).then(saved => {
               setTimeout(() => {
                 setMessages(currentMsgs => currentMsgs.map(m => m.id === completedId ? saved : m));
@@ -1433,6 +1438,7 @@ ${desc || "No description available."}`;
   ) => {
     // Cache search sources in a ref for saving when stream completes
     currentSearchSourcesRef.current = searchSources || [];
+    currentOcrProviderRef.current = null;
 
     // Placeholder message for assistant stream
     const aiMsgId = Math.random().toString();
@@ -2079,6 +2085,15 @@ User Query: ${userPrompt}`;
                                       <span className="truncate max-w-[120px]">{src.title}</span>
                                     </a>
                                   ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.ocrProvider && (
+                              <div className="border-t border-white/5 pt-2 mt-1">
+                                <div className={`text-[10px] flex items-center gap-1.5 ${theme === 'light' ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                                  <ImageIcon size={10} className="text-indigo-400 shrink-0" />
+                                  <span>Image analyzed via <span className="font-semibold text-indigo-400">{msg.ocrProvider}</span></span>
                                 </div>
                               </div>
                             )}

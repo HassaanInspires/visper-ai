@@ -212,7 +212,7 @@ async function runClaudeStreamFetch(
   }
 }
 
-async function transcribeImageToText(image: string, keys: any): Promise<string> {
+async function transcribeImageToText(image: string, keys: any): Promise<{ text: string; provider: string }> {
   // 1. Try OpenAI vision
   if (keys.openai) {
     console.log("Transcribing image via OpenAI gpt-4o-mini...");
@@ -240,7 +240,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<string> 
       if (res.ok) {
         const data = await res.json();
         const text = data.choices?.[0]?.message?.content?.trim();
-        if (text) return text;
+        if (text) return { text, provider: "OpenAI" };
       }
     } catch (e: any) {
       console.warn("OpenAI vision transcription failed:", e.message);
@@ -283,7 +283,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<string> 
       if (res.ok) {
         const data = await res.json();
         const text = data.content?.[0]?.text?.trim();
-        if (text) return text;
+        if (text) return { text, provider: "Claude" };
       }
     } catch (e: any) {
       console.warn("Claude vision transcription failed:", e.message);
@@ -317,7 +317,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<string> 
       if (res.ok) {
         const data = await res.json();
         const text = data.choices?.[0]?.message?.content?.trim();
-        if (text) return text;
+        if (text) return { text, provider: "OpenRouter (Gemini)" };
       }
     } catch (e: any) {
       console.warn("OpenRouter vision transcription failed:", e.message);
@@ -345,12 +345,17 @@ async function handleGenerateStream(
           target: currentStreamTarget
         }).catch(() => {});
 
-        const transcribed = await transcribeImageToText(image, keys);
-        if (transcribed) {
-          prompt = `[Extracted Text from Crop]:\n${transcribed}\n\nUser Query: ${prompt}`;
+        const ocrResult = await transcribeImageToText(image, keys);
+        if (ocrResult.text) {
+          prompt = `[Extracted Text from Crop]:\n${ocrResult.text}\n\nUser Query: ${prompt}`;
         } else {
           prompt = `[The screenshot crop contains no recognizable text]\n\nUser Query: ${prompt}`;
         }
+        chrome.runtime.sendMessage({
+          type: "OCR_PROVIDER_USED",
+          provider: ocrResult.provider,
+          target: currentStreamTarget
+        }).catch(() => {});
         image = undefined; // Clear the image content parameter so text-only models don't crash
       } catch (err: any) {
         chrome.runtime.sendMessage({

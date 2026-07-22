@@ -18,6 +18,7 @@ export interface DbMessage {
   synced?: boolean;
   image?: string;
   sources?: Array<{ title: string; url: string; snippet?: string }>;
+  ocrProvider?: string;
 }
 
 export interface DbDocument {
@@ -169,7 +170,8 @@ export class LocalDb {
     text: string,
     vector?: number[],
     image?: string,
-    sources?: any[]
+    sources?: any[],
+    ocrProvider?: string
   ): Promise<DbMessage> {
     const db = await this.init();
     const message: DbMessage = {
@@ -181,6 +183,7 @@ export class LocalDb {
       vector,
       image,
       sources,
+      ocrProvider,
       synced: false
     };
 
