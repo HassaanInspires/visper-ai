@@ -89,56 +89,6 @@ html, body, #root {
   border-radius: 16px;
 }
 
-/* iOS Settings Drawer */
-.ios-drawer-dark {
-  background: rgba(10, 6, 20, 0.9);
-  backdrop-filter: blur(45px) saturate(220%);
-  -webkit-backdrop-filter: blur(45px) saturate(220%);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: -10px 0px 40px rgba(0, 0, 0, 0.6);
-}
-
-.ios-drawer-light {
-  background: rgba(240, 240, 245, 0.95);
-  backdrop-filter: blur(45px) saturate(190%);
-  -webkit-backdrop-filter: blur(45px) saturate(190%);
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: -10px 0px 30px rgba(0, 0, 0, 0.05);
-}
-
-/* Settings Inputs */
-.ios-input-dark {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: #fafafa;
-  font-size: 13px;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.ios-input-dark:focus {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.ios-input-light {
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: #1c1c1e;
-  font-size: 13px;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.ios-input-light:focus {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
 /* Switch Styles */
 .ios-switch {
   position: relative;
@@ -205,15 +155,6 @@ html, body, #root {
 
 .ios-settings-row-light:last-child {
   border-bottom: none;
-}
-
-/* Apple Settings Group Row Wrapper with Icon (High Fidelity) */
-.ios-settings-item-row {
-  display: flex;
-  align-items: center;
-  justify-between: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
 }
 
 .ios-settings-icon-wrapper {

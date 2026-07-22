@@ -849,9 +849,6 @@ ${desc || "No description available."}`;
           tools: message.tools,
           url: message.url
         });
-      } else if (message.type === "TEXT_SELECTION_ACTION") {
-        // Call via ref to avoid stale closures in event listener
-        quickActionRef.current(message.action, message.text);
       } else if (message.type === "INDEXING_PROGRESS") {
         setIndexingProgress(prev => ({
           ...prev,
