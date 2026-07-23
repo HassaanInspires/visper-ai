@@ -13,7 +13,7 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Premium Modern Google Fonts: Outfit (Headings) + Plus Jakarta Sans + Inter -->
+  <!-- Premium Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -23,12 +23,8 @@
       font-family: 'Inter', sans-serif;
       transition: background-color 0.4s ease, color 0.4s ease;
     }
-    .font-display {
-      font-family: 'Outfit', sans-serif;
-    }
-    .font-subheading {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
+    .font-display { font-family: 'Outfit', sans-serif; }
+    .font-subheading { font-family: 'Plus Jakarta Sans', sans-serif; }
 
     /* Ambient Background Aura Glow */
     .aura-purple-glow {
@@ -94,58 +90,58 @@
 </head>
 <body class="theme-sunset antialiased selection:bg-fuchsia-500 selection:text-white min-h-screen">
 
-  <!-- FLOATING PILL NAVBAR WITH 3D LOGO -->
-  <nav class="fixed z-50 transition-all duration-300 left-1/2 -translate-x-1/2 top-6 w-[95%] sm:w-[90%] lg:w-[75%] xl:w-[65%]">
-    <div class="relative flex items-center justify-between px-5 py-3 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 shadow-2xl">
+  <!-- REFINED NON-WRAPPING FLOATING PILL NAVBAR -->
+  <nav class="fixed z-50 transition-all duration-300 left-1/2 -translate-x-1/2 top-5 w-[96%] sm:w-[92%] lg:w-[85%] xl:w-[75%] max-w-6xl">
+    <div class="relative flex items-center justify-between px-4 sm:px-6 py-2.5 rounded-full bg-[#080512]/85 backdrop-blur-2xl border border-white/15 shadow-[0_12px_32px_rgba(0,0,0,0.6)]">
       
-      <!-- Brand Logo with 3D Emblem -->
-      <a href="index.html" class="flex items-center gap-3 group">
+      <!-- Brand Logo with 3D Emblem (Single Line, No Wrap) -->
+      <a href="index.html" class="flex items-center gap-2.5 shrink-0 group whitespace-nowrap">
         <img src="logo.png" alt="Visper AI 3D Logo" class="w-8 h-8 rounded-xl shadow-[0_0_20px_rgba(217,70,239,0.5)] group-hover:scale-105 transition-transform">
-        <div class="flex items-center gap-1.5">
-          <span class="text-lg font-bold tracking-tight text-white font-display">Visper AI</span>
-          <span class="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 px-2 py-0.5 rounded-full font-bold">v2.5.0</span>
+        <div class="flex items-center gap-1.5 whitespace-nowrap">
+          <span class="text-base sm:text-lg font-bold tracking-tight text-white font-display whitespace-nowrap">Visper AI</span>
+          <span class="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">v2.5.0</span>
         </div>
       </a>
 
-      <!-- Nav Links -->
-      <div class="hidden md:flex items-center gap-1 text-xs lg:text-sm font-medium text-white/80">
-        <a href="index.html" class="text-white bg-white/10 px-3.5 py-1.5 rounded-full font-bold">Home</a>
-        <a href="about.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition">About</a>
-        <a href="how-to-use.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition">How to Use</a>
-        <a href="privacy.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition">Privacy Policy</a>
-        <a href="support.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition">Support</a>
+      <!-- Nav Links (Single Line, No Wrap) -->
+      <div class="hidden md:flex items-center gap-1.5 text-xs lg:text-sm font-medium text-white/80 whitespace-nowrap">
+        <a href="index.html" class="text-white bg-white/10 px-3.5 py-1.5 rounded-full font-bold whitespace-nowrap">Home</a>
+        <a href="about.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition whitespace-nowrap">About</a>
+        <a href="how-to-use.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition whitespace-nowrap">How to Use</a>
+        <a href="privacy.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition whitespace-nowrap">Privacy Policy</a>
+        <a href="support.html" class="hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition whitespace-nowrap">Support</a>
       </div>
 
       <!-- Right CTAs & Theme Selector -->
-      <div class="flex items-center gap-2">
-        <div class="hidden lg:flex items-center bg-black/60 border border-white/10 p-1 rounded-full text-[11px] gap-1">
-          <button onclick="setTheme('sunset')" id="btn-sunset" class="px-2.5 py-1 rounded-full font-bold bg-fuchsia-600 text-white transition">🌅 Sunset</button>
-          <button onclick="setTheme('emerald')" id="btn-emerald" class="px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition">🌲 Emerald</button>
-          <button onclick="setTheme('obsidian')" id="btn-obsidian" class="px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition">🌌 Obsidian</button>
+      <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+        <div class="hidden lg:flex items-center bg-black/60 border border-white/10 p-1 rounded-full text-[11px] gap-1 shrink-0">
+          <button onclick="setTheme('sunset')" id="btn-sunset" class="px-2.5 py-1 rounded-full font-bold bg-fuchsia-600 text-white transition whitespace-nowrap">🌅 Sunset</button>
+          <button onclick="setTheme('emerald')" id="btn-emerald" class="px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition whitespace-nowrap">🌲 Emerald</button>
+          <button onclick="setTheme('obsidian')" id="btn-obsidian" class="px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition whitespace-nowrap">🌌 Obsidian</button>
         </div>
 
-        <a href="https://chrome.google.com/webstore" target="_blank" class="inline-flex items-center justify-center pill-glow text-white text-xs font-bold px-4 py-2 rounded-full hover:scale-105 transition-all shadow-lg">
+        <a href="https://chrome.google.com/webstore" target="_blank" class="inline-flex items-center justify-center pill-glow text-white text-xs font-bold px-4 py-2 rounded-full hover:scale-105 transition-all shadow-lg whitespace-nowrap">
           Add to Chrome
         </a>
       </div>
     </div>
   </nav>
 
-  <!-- HERO SECTION WITH MODERN OUTFIT TYPOGRAPHY & 3D EMBLEM -->
-  <section class="relative isolate min-h-screen flex flex-col justify-center items-center overflow-hidden hero-bg text-white py-32 px-6 md:px-12 lg:px-20">
+  <!-- HERO SECTION WITH RESPONSIVE SCALED HEADLINE -->
+  <section class="relative isolate min-h-screen flex flex-col justify-center items-center overflow-hidden hero-bg text-white pt-28 pb-20 px-6 md:px-12 lg:px-20">
     
     <!-- Background Aura Glow -->
     <div class="absolute inset-0 -z-10 aura-purple-glow pointer-events-none"></div>
     
-    <!-- Huge Background Watermark Text -->
+    <!-- Background Watermark Text -->
     <div class="absolute bottom-0 left-0 right-0 flex items-end justify-center pointer-events-none select-none overflow-hidden pb-4">
-      <span class="text-[28vw] font-display font-black text-white/5 tracking-tighter whitespace-nowrap leading-[0.8] transform translate-y-8" style="-webkit-text-stroke: 2px rgba(255,255,255,0.06)">VISPER</span>
+      <span class="text-[26vw] font-display font-black text-white/5 tracking-tighter whitespace-nowrap leading-[0.8] transform translate-y-8" style="-webkit-text-stroke: 2px rgba(255,255,255,0.06)">VISPER</span>
     </div>
 
     <!-- Main Container -->
-    <div class="relative z-10 max-w-6xl mx-auto flex flex-col items-start text-left space-y-8 pt-10">
+    <div class="relative z-10 max-w-6xl mx-auto flex flex-col items-start text-left space-y-7 pt-6">
       
-      <!-- Top Badge with 3D Logo Icon -->
+      <!-- Top Badge -->
       <div>
         <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-fuchsia-500/30 bg-fuchsia-950/40 backdrop-blur-md text-xs font-semibold text-fuchsia-200 shadow-xl">
           <img src="logo.png" alt="Logo" class="w-4 h-4 rounded-md">
@@ -153,9 +149,9 @@
         </div>
       </div>
 
-      <!-- Main Headline (Outfit 900 Extra-Bold Typography) -->
+      <!-- Scaled Main Headline -->
       <div class="relative max-w-4xl">
-        <h1 class="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tight leading-[1.02] font-display text-white drop-shadow-2xl">
+        <h1 class="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[1.05] font-display text-white drop-shadow-2xl">
           Effortless AI <br/>
           <span class="text-gradient">Browser Copilot.</span>
         </h1>
@@ -181,10 +177,10 @@
         </p>
 
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-          <a href="https://chrome.google.com/webstore" target="_blank" class="inline-flex items-center justify-center py-4 px-9 text-base rounded-full btn-primary font-bold hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.25)] font-display">
+          <a href="https://chrome.google.com/webstore" target="_blank" class="inline-flex items-center justify-center py-4 px-9 text-base rounded-full btn-primary font-bold hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.25)] font-display whitespace-nowrap">
             🚀 Install for Chrome
           </a>
-          <a href="#how-it-works" class="inline-flex items-center justify-center py-4 px-9 text-base rounded-full border border-white/15 bg-white/5 text-white font-semibold hover:bg-white/10 transition-all font-subheading">
+          <a href="#how-it-works" class="inline-flex items-center justify-center py-4 px-9 text-base rounded-full border border-white/15 bg-white/5 text-white font-semibold hover:bg-white/10 transition-all font-subheading whitespace-nowrap">
             How it works
           </a>
         </div>
@@ -193,7 +189,7 @@
   </section>
 
   <!-- "BUILT FOR SPEED" 3-CARD GRID SECTION -->
-  <section id="how-it-works" class="relative py-32 px-6 md:px-12 lg:px-20 bg-[#040208] text-white">
+  <section id="how-it-works" class="relative py-28 px-6 md:px-12 lg:px-20 bg-[#040208] text-white">
     <div class="max-w-6xl mx-auto space-y-16">
       
       <!-- Section Header -->
@@ -269,34 +265,34 @@
     </div>
   </section>
 
-  <!-- INFINITE MARQUEE TICKER -->
-  <section class="py-14 bg-white text-slate-900 overflow-hidden relative">
+  <!-- SLEEK HARMONIZED DARK GLASS MARQUEE TICKER -->
+  <section class="py-12 bg-[#090614] border-y border-white/10 text-white overflow-hidden relative">
     <div class="max-w-6xl mx-auto px-6 mb-6 text-center">
-      <span class="text-xs font-extrabold text-slate-500 uppercase tracking-widest font-subheading">Works Seamlessly Across Your Favorite Websites & Models</span>
+      <span class="text-xs font-extrabold text-slate-400 uppercase tracking-widest font-subheading">Works Seamlessly Across Your Favorite Websites & Models</span>
     </div>
 
     <div class="overflow-hidden whitespace-nowrap flex">
-      <div class="animate-marquee flex items-center gap-12 text-sm font-bold text-slate-700 font-subheading">
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🛍️ Amazon</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">📺 YouTube</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">⚡ DeepSeek-V3</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">✨ Google Gemini</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🧠 Claude 3.5 Sonnet</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🚀 ChatGPT GPT-4o</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🔒 Local Gemini Nano</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">📄 PDF Local RAG</span>
+      <div class="animate-marquee flex items-center gap-12 text-sm font-bold text-slate-200 font-subheading">
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🛍️ Amazon</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">📺 YouTube</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">⚡ DeepSeek-V3</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">✨ Google Gemini</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🧠 Claude 3.5 Sonnet</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🚀 ChatGPT GPT-4o</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🔒 Local Gemini Nano</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">📄 PDF Local RAG</span>
         <!-- Duplicate Loop -->
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🛍️ Amazon</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">📺 YouTube</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">⚡ DeepSeek-V3</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">✨ Google Gemini</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🧠 Claude 3.5 Sonnet</span>
-        <span class="px-5 py-2.5 rounded-full bg-slate-100 border border-slate-200">🚀 ChatGPT GPT-4o</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🛍️ Amazon</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">📺 YouTube</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">⚡ DeepSeek-V3</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">✨ Google Gemini</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🧠 Claude 3.5 Sonnet</span>
+        <span class="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-fuchsia-500/40 transition">🚀 ChatGPT GPT-4o</span>
       </div>
     </div>
   </section>
 
-  <!-- FOOTER WITH 3D LOGO -->
+  <!-- FOOTER -->
   <footer class="border-t border-white/10 py-14 px-6 text-center text-slate-400 text-xs space-y-6 bg-[#05030a]">
     <div class="flex items-center justify-center gap-2">
       <img src="logo.png" alt="Visper Logo" class="w-6 h-6 rounded-md">
@@ -319,9 +315,9 @@
         const btn = document.getElementById('btn-' + t);
         if (btn) {
           if (t === theme) {
-            btn.className = 'px-2.5 py-1 rounded-full font-bold bg-fuchsia-600 text-white transition';
+            btn.className = 'px-2.5 py-1 rounded-full font-bold bg-fuchsia-600 text-white transition whitespace-nowrap';
           } else {
-            btn.className = 'px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition';
+            btn.className = 'px-2.5 py-1 rounded-full font-bold text-slate-400 hover:text-white transition whitespace-nowrap';
           }
         }
       });
