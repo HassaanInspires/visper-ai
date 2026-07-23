@@ -4,209 +4,297 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Visper AI — Your Smart Autonomous AI Browser Assistant</title>
-  <meta name="description" content="Visper AI is an easy-to-use AI browser assistant. Automate shopping, conduct web research, get YouTube video summaries in English & Urdu, and keep your data 100% private.">
+  <meta name="description" content="Visper AI is a modern AI browser assistant for Chrome. Automate shopping, conduct web research, summarize YouTube videos in English & Urdu, and keep your data 100% private.">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     body {
       font-family: 'Inter', sans-serif;
       transition: background-color 0.4s ease, color 0.4s ease;
     }
-    
-    /* THEME 1: DEFAULT DARK OBSIDIAN */
-    body.theme-dark {
-      background-color: #050508;
-      color: #f1f5f9;
-    }
-    body.theme-dark .glass-panel {
-      background: rgba(13, 15, 23, 0.85);
-      border: 1px solid rgba(168, 85, 247, 0.25);
-    }
-    body.theme-dark .accent-gradient {
-      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    h1, h2, h3, h4, .font-display {
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* THEME 2: SUNSET VIBRANCY */
+    /* Grid backdrop pattern */
+    .bg-grid-pattern {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* Floating ambient blur blobs */
+    .blob-ambient {
+      position: absolute;
+      border-radius: 9999px;
+      filter: blur(110px);
+      pointer-events: none;
+      opacity: 0.6;
+      animation: floatBlob 18s ease-in-out infinite alternate;
+    }
+    @keyframes floatBlob {
+      0% { transform: translate(0px, 0px) scale(1); }
+      50% { transform: translate(60px, -40px) scale(1.15); }
+      100% { transform: translate(-40px, 40px) scale(0.9); }
+    }
+
+    /* THEME 1: SUNSET VIBRANCY (DEFAULT) */
     body.theme-sunset {
-      background-color: #0c0510;
-      color: #fdf4ff;
+      background-color: #07050e;
+      color: #f3e8ff;
     }
-    body.theme-sunset .glass-panel {
-      background: rgba(23, 11, 24, 0.85);
-      border: 1px solid rgba(217, 70, 239, 0.3);
+    body.theme-sunset .glass-card {
+      background: rgba(20, 14, 32, 0.65);
+      border: 1px solid rgba(217, 70, 239, 0.2);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.4);
     }
-    body.theme-sunset .accent-gradient {
+    body.theme-sunset .accent-btn {
       background: linear-gradient(135deg, #d946ef 0%, #f59e0b 100%);
+      box-shadow: 0 0 25px rgba(217, 70, 239, 0.4);
+    }
+    body.theme-sunset .accent-text {
+      background: linear-gradient(135deg, #f472b6 0%, #fbbf24 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    /* THEME 3: EMERALD FOREST */
+    /* THEME 2: EMERALD FOREST */
     body.theme-emerald {
       background-color: #030a06;
       color: #ecfdf5;
     }
-    body.theme-emerald .glass-panel {
-      background: rgba(9, 22, 16, 0.85);
-      border: 1px solid rgba(16, 185, 129, 0.3);
+    body.theme-emerald .glass-card {
+      background: rgba(9, 24, 17, 0.65);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.4);
     }
-    body.theme-emerald .accent-gradient {
+    body.theme-emerald .accent-btn {
       background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+    }
+    body.theme-emerald .accent-text {
+      background: linear-gradient(135deg, #34d399 0%, #22d3ee 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* THEME 3: OBSIDIAN MIDNIGHT */
+    body.theme-obsidian {
+      background-color: #050508;
+      color: #f1f5f9;
+    }
+    body.theme-obsidian .glass-card {
+      background: rgba(15, 17, 26, 0.7);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    body.theme-obsidian .accent-btn {
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      box-shadow: 0 0 25px rgba(124, 58, 237, 0.4);
+    }
+    body.theme-obsidian .accent-text {
+      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* THEME 4: CLEAN LIGHT GLASS */
+    body.theme-light {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    body.theme-light .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+    body.theme-light .accent-btn {
+      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      box-shadow: 0 0 25px rgba(37, 99, 235, 0.3);
+    }
+    body.theme-light .accent-text {
+      background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
   </style>
 </head>
-<body class="theme-dark antialiased selection:bg-purple-500 selection:text-white">
+<body class="theme-sunset antialiased selection:bg-fuchsia-500 selection:text-white bg-grid-pattern relative min-h-screen">
 
-  <!-- Navigation Bar -->
-  <header class="fixed top-0 left-0 right-0 z-50 glass-panel backdrop-blur-xl border-b px-6 py-4">
+  <!-- Ambient background glow blobs -->
+  <div class="blob-ambient w-96 h-96 bg-fuchsia-600 top-10 left-1/4"></div>
+  <div class="blob-ambient w-96 h-96 bg-amber-500 top-40 right-10" style="animation-delay: -5s;"></div>
+  <div class="blob-ambient w-80 h-80 bg-purple-700 bottom-20 left-10" style="animation-delay: -10s;"></div>
+
+  <!-- Header Navigation -->
+  <header class="fixed top-0 left-0 right-0 z-50 glass-card border-b px-6 py-4">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       
-      <!-- Logo -->
-      <a href="index.html" class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl accent-gradient p-0.5 shadow-lg">
-          <div class="w-full h-full bg-[#0d0f17] rounded-[10px] flex items-center justify-center font-extrabold text-white text-sm">V</div>
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-2xl accent-btn p-0.5 transition-transform group-hover:scale-105">
+          <div class="w-full h-full bg-[#0a0714] rounded-[14px] flex items-center justify-center font-extrabold text-white text-base">V</div>
         </div>
-        <span class="font-extrabold text-lg tracking-tight text-white">Visper AI</span>
-        <span class="bg-purple-500/20 border border-purple-400/30 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full">v2.5.0</span>
+        <div class="flex flex-col">
+          <span class="font-extrabold text-lg tracking-tight text-white font-display">Visper AI</span>
+          <span class="text-[10px] font-bold text-fuchsia-400">Autonomous Assistant v2.5.0</span>
+        </div>
       </a>
 
-      <!-- Page Links -->
-      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
         <a href="index.html" class="text-white font-bold">Home</a>
-        <a href="about.html" class="hover:text-purple-300 transition">About</a>
-        <a href="how-to-use.html" class="hover:text-purple-300 transition">How to Use</a>
-        <a href="privacy.html" class="hover:text-purple-300 transition">Privacy Policy</a>
-        <a href="support.html" class="hover:text-purple-300 transition">Support</a>
+        <a href="about.html" class="hover:text-fuchsia-300 transition">About</a>
+        <a href="how-to-use.html" class="hover:text-fuchsia-300 transition">How to Use</a>
+        <a href="privacy.html" class="hover:text-fuchsia-300 transition">Privacy Policy</a>
+        <a href="support.html" class="hover:text-fuchsia-300 transition">Support Center</a>
       </nav>
 
-      <!-- Theme Selector Buttons & Install -->
+      <!-- Theme Switcher & Action CTA -->
       <div class="flex items-center gap-3">
-        <!-- Theme Pills -->
-        <div class="hidden lg:flex items-center bg-black/40 border border-white/10 p-1 rounded-xl text-xs">
-          <button onclick="setTheme('dark')" id="btn-dark" class="px-2.5 py-1 rounded-lg font-bold bg-purple-600 text-white transition">🌌 Dark</button>
-          <button onclick="setTheme('sunset')" id="btn-sunset" class="px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition">🌅 Sunset</button>
-          <button onclick="setTheme('emerald')" id="btn-emerald" class="px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition">🌲 Emerald</button>
+        <!-- Live Theme Pills -->
+        <div class="hidden lg:flex items-center bg-black/50 border border-white/10 p-1 rounded-2xl text-xs gap-1">
+          <button onclick="switchTheme('sunset')" id="btn-sunset" class="px-3 py-1.5 rounded-xl font-bold bg-fuchsia-600 text-white transition">🌅 Sunset</button>
+          <button onclick="switchTheme('emerald')" id="btn-emerald" class="px-3 py-1.5 rounded-xl font-bold text-slate-400 hover:text-white transition">🌲 Emerald</button>
+          <button onclick="switchTheme('obsidian')" id="btn-obsidian" class="px-3 py-1.5 rounded-xl font-bold text-slate-400 hover:text-white transition">🌌 Obsidian</button>
+          <button onclick="switchTheme('light')" id="btn-light" class="px-3 py-1.5 rounded-xl font-bold text-slate-400 hover:text-white transition">☀️ Light</button>
         </div>
 
-        <a href="https://chrome.google.com/webstore" target="_blank" class="accent-gradient hover:opacity-90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg transition">
+        <a href="https://chrome.google.com/webstore" target="_blank" class="accent-btn text-white font-extrabold text-xs px-5 py-2.5 rounded-xl hover:opacity-90 transition">
           Add to Chrome — Free
         </a>
       </div>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="pt-36 pb-20 px-6 relative overflow-hidden">
-    <div class="max-w-5xl mx-auto text-center space-y-8 relative z-10">
+  <!-- Hero Section (Linear / Vercel Style) -->
+  <section class="pt-40 pb-20 px-6 relative z-10">
+    <div class="max-w-5xl mx-auto text-center space-y-8">
       
-      <div class="inline-flex items-center gap-2 bg-purple-950/60 border border-purple-500/30 px-4 py-1.5 rounded-full text-xs font-semibold text-purple-300">
+      <!-- Top Announcement Badge -->
+      <div class="inline-flex items-center gap-2 bg-fuchsia-950/60 border border-fuchsia-500/30 px-4 py-1.5 rounded-full text-xs font-semibold text-fuchsia-300 shadow-lg">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        Official Chrome Web Store Assistant
+        Verified Manifest V3 Chrome Extension
       </div>
 
-      <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
-        Your Smart AI Browser Assistant <br>
-        <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400">Made Simple & Private</span>
+      <!-- Main Headline -->
+      <h1 class="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.1] font-display">
+        Your Smart AI Assistant <br>
+        <span class="accent-text">Built Right Into Chrome</span>
       </h1>
 
-      <p class="text-base md:text-lg text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-        Visper AI helps you shop faster, summarize long articles and YouTube videos, do web research, and keep all your chat history 100% private on your own computer.
+      <!-- Layman Subtitle -->
+      <p class="text-base sm:text-lg md:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
+        Visper AI helps you shop faster, summarize long web articles & YouTube videos in English and Urdu, and keep all your chat history 100% private on your own computer.
       </p>
 
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-        <a href="https://chrome.google.com/webstore" target="_blank" class="w-full sm:w-auto accent-gradient hover:opacity-95 text-white font-extrabold text-sm px-8 py-4 rounded-xl shadow-xl transition">
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <a href="https://chrome.google.com/webstore" target="_blank" class="w-full sm:w-auto accent-btn text-white font-extrabold text-sm px-8 py-4 rounded-2xl hover:scale-[1.02] transition-transform">
           🚀 Install Extension for Chrome
         </a>
-        <a href="how-to-use.html" class="w-full sm:w-auto glass-panel hover:bg-white/10 text-slate-200 font-bold text-sm px-8 py-4 rounded-xl border border-white/10 transition">
-          📖 Read Easy User Guide
+        <a href="how-to-use.html" class="w-full sm:w-auto glass-card hover:bg-white/10 text-white font-bold text-sm px-8 py-4 rounded-2xl border border-white/10 transition">
+          📖 Easy 4-Step Guide
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Feature Cards Grid (Layman English) -->
-  <section class="py-16 px-6 max-w-6xl mx-auto">
-    <div class="text-center space-y-3 mb-12">
-      <h2 class="text-3xl font-extrabold text-white">What Can Visper AI Do for You?</h2>
-      <p class="text-slate-400 text-sm max-w-xl mx-auto">Simple tools designed to save you time every day on the web.</p>
+  <!-- Live Feature Grid (Layman English) -->
+  <section class="py-16 px-6 max-w-6xl mx-auto relative z-10">
+    <div class="text-center space-y-3 mb-14">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white font-display">What Can Visper AI Do for You?</h2>
+      <p class="text-slate-400 text-sm max-w-xl mx-auto">Designed for simple, fast, and automated browsing without complicated setups.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      <!-- Card 1: Shopping Helper -->
-      <div class="glass-panel p-6 rounded-2xl border border-white/10 hover:border-purple-500/40 transition space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-2xl">🛍️</div>
-        <h3 class="text-xl font-bold text-white">Smart Shopping Helper</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
-          Shopping online? Visper AI helps you select clothing sizes (Small, Medium, Large), checks for coupon discounts, compares prices, and fills out checkout forms automatically.
+      <!-- Feature 1: Shopping Helper -->
+      <div class="glass-card p-8 rounded-3xl border hover:border-fuchsia-500/50 transition-all group space-y-4">
+        <div class="w-14 h-14 rounded-2xl bg-fuchsia-500/20 border border-fuchsia-500/30 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🛍️</div>
+        <h3 class="text-2xl font-bold text-white font-display">Smart Shopping Helper</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">
+          Shopping online? Visper AI helps you pick clothing sizes (Small, Medium, Large), finds coupon codes, compares item prices, and fills out checkout forms automatically.
         </p>
       </div>
 
-      <!-- Card 2: Web Research -->
-      <div class="glass-panel p-6 rounded-2xl border border-white/10 hover:border-cyan-500/40 transition space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-2xl">🔍</div>
-        <h3 class="text-xl font-bold text-white">Web Research & Summary Tables</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
-          Reading multiple web pages or articles? Visper AI searches the web in the background and organizes key findings into easy-to-read comparison tables with source links.
+      <!-- Feature 2: Web Research -->
+      <div class="glass-card p-8 rounded-3xl border hover:border-amber-500/50 transition-all group space-y-4">
+        <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🔍</div>
+        <h3 class="text-2xl font-bold text-white font-display">Web Research & Summary Tables</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">
+          Reading multiple web pages or articles? Visper AI searches the web in the background and organizes key findings into easy-to-read comparison tables with clickable source links.
         </p>
       </div>
 
-      <!-- Card 3: YouTube Copilot -->
-      <div class="glass-panel p-6 rounded-2xl border border-white/10 hover:border-red-500/40 transition space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-2xl">📺</div>
-        <h3 class="text-xl font-bold text-white">YouTube Video Summaries (Urdu & English)</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
-          Save hours watching long video lectures! Visper reads video captions and gives you clear bullet-point summaries in both English and Urdu with key takeaway points.
+      <!-- Feature 3: YouTube Copilot -->
+      <div class="glass-card p-8 rounded-3xl border hover:border-rose-500/50 transition-all group space-y-4">
+        <div class="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">📺</div>
+        <h3 class="text-2xl font-bold text-white font-display">YouTube Video Summaries (English & Urdu)</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">
+          Save hours watching long lectures! Visper reads video captions and gives you clear bullet-point summaries in both English and Urdu with key takeaway points.
         </p>
       </div>
 
-      <!-- Card 4: 100% Private Memory -->
-      <div class="glass-panel p-6 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-2xl">🧠</div>
-        <h3 class="text-xl font-bold text-white">100% Private Computer Memory</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
-          Your privacy matters. Visper saves your settings and local document vector search directly inside your computer browser. No tracking, no ads, no selling your data.
+      <!-- Feature 4: 100% Private Memory -->
+      <div class="glass-card p-8 rounded-3xl border hover:border-emerald-500/50 transition-all group space-y-4">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🧠</div>
+        <h3 class="text-2xl font-bold text-white font-display">100% Private Local Computer Storage</h3>
+        <p class="text-slate-300 text-sm leading-relaxed">
+          Your privacy matters. Visper saves your settings and local document vector search directly inside your computer browser. Zero tracking, zero ads, zero data selling.
         </p>
       </div>
     </div>
   </section>
 
   <!-- Supported AI Models Grid -->
-  <section class="py-16 px-6 max-w-5xl mx-auto border-t border-white/10">
+  <section class="py-16 px-6 max-w-5xl mx-auto border-t border-white/10 relative z-10">
     <div class="text-center space-y-3 mb-10">
-      <h2 class="text-2xl font-bold text-white">Works With Your Favorite AI Models</h2>
+      <h2 class="text-2xl font-bold text-white font-display">Works With Your Favorite AI Models</h2>
       <p class="text-slate-400 text-xs">Connect your own API key or use Chrome's free built-in offline Gemini Nano model.</p>
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
-      <div class="glass-panel p-4 rounded-xl text-xs font-bold text-white">⚡ DeepSeek AI</div>
-      <div class="glass-panel p-4 rounded-xl text-xs font-bold text-white">✨ Google Gemini</div>
-      <div class="glass-panel p-4 rounded-xl text-xs font-bold text-white">🧠 Claude 3.5</div>
-      <div class="glass-panel p-4 rounded-xl text-xs font-bold text-white">🚀 OpenAI GPT-4o</div>
-      <div class="glass-panel p-4 rounded-xl text-xs font-bold text-white">🔒 Local Nano</div>
+      <div class="glass-card p-4 rounded-2xl text-xs font-bold text-white">⚡ DeepSeek AI</div>
+      <div class="glass-card p-4 rounded-2xl text-xs font-bold text-white">✨ Google Gemini</div>
+      <div class="glass-card p-4 rounded-2xl text-xs font-bold text-white">🧠 Claude 3.5</div>
+      <div class="glass-card p-4 rounded-2xl text-xs font-bold text-white">🚀 OpenAI GPT-4o</div>
+      <div class="glass-card p-4 rounded-2xl text-xs font-bold text-white">🔒 Offline Nano</div>
     </div>
   </section>
 
   <!-- Footer -->
-  <footer class="border-t border-white/10 py-10 px-6 text-center text-slate-400 text-xs space-y-4">
+  <footer class="border-t border-white/10 py-12 px-6 text-center text-slate-400 text-xs space-y-4 relative z-10">
     <div class="flex flex-wrap justify-center gap-6 text-slate-300 font-medium">
-      <a href="index.html" class="hover:text-purple-300">Home</a>
-      <a href="about.html" class="hover:text-purple-300">About Visper</a>
-      <a href="how-to-use.html" class="hover:text-purple-300">How to Use</a>
-      <a href="privacy.html" class="hover:text-purple-300">Privacy Policy</a>
-      <a href="support.html" class="hover:text-purple-300">Support Center</a>
+      <a href="index.html" class="hover:text-fuchsia-300">Home</a>
+      <a href="about.html" class="hover:text-fuchsia-300">About Visper</a>
+      <a href="how-to-use.html" class="hover:text-fuchsia-300">How to Use</a>
+      <a href="privacy.html" class="hover:text-fuchsia-300">Privacy Policy</a>
+      <a href="support.html" class="hover:text-fuchsia-300">Support Center</a>
     </div>
-    <p>© 2026 Visper AI. All rights reserved. Designed for simple, private, and fast web browsing.</p>
+    <p>© 2026 Visper AI. Built for fast, simple, and private web browsing.</p>
   </footer>
 
   <script>
-    function setTheme(theme) {
-      document.body.className = 'theme-' + theme + ' antialiased selection:bg-purple-500 selection:text-white';
-      ['dark', 'sunset', 'emerald'].forEach(t => {
+    function switchTheme(theme) {
+      document.body.className = 'theme-' + theme + ' antialiased selection:bg-fuchsia-500 selection:text-white bg-grid-pattern relative min-h-screen';
+      ['sunset', 'emerald', 'obsidian', 'light'].forEach(t => {
         const btn = document.getElementById('btn-' + t);
         if (btn) {
           if (t === theme) {
-            btn.className = 'px-2.5 py-1 rounded-lg font-bold bg-purple-600 text-white transition';
+            btn.className = 'px-3 py-1.5 rounded-xl font-bold bg-fuchsia-600 text-white transition';
           } else {
-            btn.className = 'px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition';
+            btn.className = 'px-3 py-1.5 rounded-xl font-bold text-slate-400 hover:text-white transition';
           }
         }
       });

@@ -3,68 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — Visper AI</title>
+  <title>Privacy Policy — Visper AI Extension</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #050508; color: #cbd5e1; }
-    .glass-panel { background: rgba(13, 15, 23, 0.85); border: 1px solid rgba(168, 85, 247, 0.25); backdrop-filter: blur(35px); }
+    body { font-family: 'Inter', sans-serif; background-color: #07050e; color: #f3e8ff; }
+    h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-card { background: rgba(20, 14, 32, 0.7); border: 1px solid rgba(217, 70, 239, 0.2); backdrop-filter: blur(30px); }
   </style>
 </head>
-<body class="bg-[#050508] text-slate-300 py-12 px-6">
-  <div class="max-w-4xl mx-auto glass-panel p-8 md:p-12 rounded-3xl border border-white/10 space-y-8">
+<body class="bg-[#07050e] text-slate-200 py-12 px-6 min-h-screen">
+  <div class="max-w-4xl mx-auto glass-card p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
+    
+    <!-- Header -->
     <div class="flex items-center justify-between pb-6 border-b border-white/10">
       <div>
-        <h1 class="text-3xl font-extrabold text-white">Privacy Policy for Visper AI</h1>
-        <p class="text-xs text-purple-400 font-semibold mt-1">Effective Date: July 22, 2026 | Extension Version: 2.5.0</p>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white font-display">Privacy Policy for Visper AI</h1>
+        <p class="text-xs text-fuchsia-400 font-semibold mt-1">Last Updated: July 23, 2026 | Extension Version: 2.5.0</p>
       </div>
-      <a href="index.html" class="text-xs bg-purple-600/30 border border-purple-500/40 text-purple-300 px-3 py-1.5 rounded-xl font-bold hover:bg-purple-600/50 transition">← Back to Home</a>
+      <a href="index.html" class="text-xs bg-fuchsia-600/30 border border-fuchsia-500/40 text-fuchsia-300 px-4 py-2 rounded-xl font-bold hover:bg-fuchsia-600/50 transition">← Back to Home</a>
     </div>
 
+    <!-- Section 1: Single Purpose & Overview -->
     <section class="space-y-3">
-      <h2 class="text-xl font-bold text-white">1. Single Purpose & Overview</h2>
+      <h2 class="text-xl font-bold text-white font-display">1. Single Purpose & Overview</h2>
       <p class="text-sm leading-relaxed text-slate-300">
-        Visper AI is an autonomous AI browser assistant and copilot extension designed solely to enhance web productivity. Its single purpose is to assist users with web content interaction, e-commerce shopping automation, web research synthesis, document vector search, and YouTube transcript summaries.
+        Visper AI is an autonomous AI browser assistant extension built in compliance with Google Chrome's Manifest V3 standards. Its <b>single purpose</b> is to provide users with an intelligent browser side panel assistant that helps with e-commerce size selection and checkout automation, web research table compilation, local PDF document vector search, and bilingual YouTube video transcript summaries.
       </p>
     </section>
 
+    <!-- Section 2: Zero-Telemetry & Local Storage Disclosures -->
     <section class="space-y-3">
-      <h2 class="text-xl font-bold text-white">2. Data Collection & Privacy Practices</h2>
-      <h3 class="text-base font-semibold text-purple-300">A. Data Stored 100% Locally</h3>
-      <ul class="list-disc pl-5 text-sm space-y-1.5 text-slate-300">
-        <li><b>API Keys & Settings:</b> User API keys (OpenAI, Anthropic, Gemini, Groq, DeepSeek) and extension settings are stored locally on the user's browser via <code class="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded">chrome.storage.local</code>.</li>
-        <li><b>Local Semantic Memory (RAG):</b> Past chat history and uploaded PDF document chunks are vectorized locally using WebAssembly (Transformers.js ONNX) and stored locally in IndexedDB.</li>
-        <li><b>No Telemetry or Third-Party Tracking:</b> Visper AI does NOT use tracking cookies, analytics SDKs, or external telemetry tracking servers.</li>
+      <h2 class="text-xl font-bold text-white font-display">2. Zero-Telemetry & Local Data Storage Disclosures</h2>
+      <p class="text-sm leading-relaxed text-slate-300">
+        Visper AI operates on a <b>local-first data privacy architecture</b>. We prioritize user data security above all else:
+      </p>
+      <ul class="list-disc pl-5 text-sm space-y-2 text-slate-300">
+        <li><b>No Telemetry or Tracking:</b> Visper AI contains 0 third-party tracking scripts, 0 analytics SDKs, 0 advertising networks, and 0 external telemetry servers.</li>
+        <li><b>Local Storage (<code class="bg-slate-800 text-fuchsia-300 px-1.5 py-0.5 rounded">chrome.storage.local</code>):</b> Your API keys (OpenAI, Anthropic, Gemini, Groq, DeepSeek) and custom settings are stored exclusively inside your browser's local sandbox storage. They are never sent to us or any central server.</li>
+        <li><b>Local Vector Database (IndexedDB & WASM):</b> When using document vector search (Local RAG), document embeddings are generated entirely offline inside your browser using WebAssembly (<code class="bg-slate-800 text-fuchsia-300 px-1.5 py-0.5 rounded">@xenova/transformers</code>) and stored in local IndexedDB.</li>
       </ul>
+    </section>
 
-      <h3 class="text-base font-semibold text-purple-300 pt-2">B. Network Data Transmission</h3>
+    <!-- Section 3: Transmitted Data & Third-Party AI APIs -->
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white font-display">3. Transmitted Data & Network Security</h2>
       <p class="text-sm leading-relaxed text-slate-300">
-        When a user submits a prompt, text queries and relevant page context are sent directly to the user-selected AI model provider API (e.g. OpenAI, Anthropic, Google Gemini, Groq, DeepSeek) or processed completely offline via Chrome Gemini Nano. All network requests occur via encrypted HTTPS directly between the user's browser and the AI provider with no middleman server.
+        When you submit a prompt or request an action, text queries and page content selected by you are transmitted via direct, encrypted HTTPS requests to the third-party AI model provider you selected (e.g. OpenAI, Anthropic, Google Gemini, Groq, or DeepSeek). 
+      </p>
+      <p class="text-sm leading-relaxed text-slate-300">
+        Alternatively, if you choose <b>Local Gemini Nano</b>, all completions execute 100% offline within your device with zero network transmission.
       </p>
     </section>
 
+    <!-- Section 4: Comprehensive Chrome Extension Permission Justification Matrix -->
     <section class="space-y-3">
-      <h2 class="text-xl font-bold text-white">3. Permissions Justification</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">sidePanel:</b> Displays assistant UI alongside active web pages.</div>
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">activeTab:</b> Extracts page context when requested by the user.</div>
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">tabs:</b> Opens new research tabs during multi-step tasks.</div>
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">scripting:</b> Executes DOM action heuristics authorized by user.</div>
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">storage:</b> Saves local user preferences and chat history.</div>
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10"><b class="text-purple-300">offscreen:</b> Computes local WASM text embeddings for vector RAG.</div>
+      <h2 class="text-xl font-bold text-white font-display">4. Chrome Extension Permission Justifications Matrix</h2>
+      <p class="text-sm text-slate-400">The following table outlines the exact permissions requested in <code class="bg-slate-800 text-fuchsia-300 px-1.5 py-0.5 rounded">manifest.json</code> and their strict necessity for the extension's single purpose:</p>
+      
+      <div class="overflow-x-auto border border-white/10 rounded-2xl">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-white/10 text-white font-bold border-b border-white/10">
+            <tr>
+              <th class="p-3">Permission</th>
+              <th class="p-3">Purpose & Necessity</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">sidePanel</td>
+              <td class="p-3">Renders the primary assistant chat interface side-by-side with active browser tabs.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">activeTab</td>
+              <td class="p-3">Extracts text and DOM metadata from the active tab only when requested by the user.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">tabs</td>
+              <td class="p-3">Opens research result tabs and allows navigation during user-initiated web research tasks.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">scripting</td>
+              <td class="p-3">Executes DOM action scripts (e.g., size selection, coupon testing) authorized by the user.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">storage</td>
+              <td class="p-3">Saves local user preferences, theme options, API keys, and local chat history.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">offscreen</td>
+              <td class="p-3">Runs client-side WASM text vectorization for document RAG without freezing the main UI.</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-mono font-bold text-fuchsia-300">&lt;all_urls&gt;</td>
+              <td class="p-3">Enables autonomous web assistance across any user-visited website during active sessions.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
+    <!-- Section 5: Data Retention & User Deletion Rights -->
     <section class="space-y-3">
-      <h2 class="text-xl font-bold text-white">4. Data Erasure & Control</h2>
+      <h2 class="text-xl font-bold text-white font-display">5. Data Retention & User Rights (GDPR / CCPA)</h2>
       <p class="text-sm leading-relaxed text-slate-300">
-        Users retain 100% control of their data. All local chat histories and vector databases can be erased at any time from the extension settings panel. Uninstalling the extension permanently removes all stored data from the browser.
+        You retain 100% ownership and control over your data. You may clear your chat history, vector indexes, or API keys at any time from the extension's settings panel. Uninstalling Visper AI permanently deletes all local storage items from your device.
       </p>
     </section>
 
+    <!-- Section 6: Contact & Inquiries -->
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold text-white font-display">6. Security & Contact Information</h2>
+      <p class="text-sm leading-relaxed text-slate-300">
+        If you have any questions regarding this Privacy Policy, compliance inquiries, or security reports, please contact our developer team at:
+      </p>
+      <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center justify-between text-xs">
+        <div>
+          <span class="text-slate-400 block">Official Developer Contact:</span>
+          <a href="mailto:info@muhammadhassaankhan.com" class="font-bold text-fuchsia-400 text-sm">info@muhammadhassaankhan.com</a>
+        </div>
+        <a href="mailto:info@muhammadhassaankhan.com" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold px-4 py-2 rounded-xl transition">Send Email</a>
+      </div>
+    </section>
+
+    <!-- Footer -->
     <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
-      <span>Questions about our privacy policy?</span>
-      <a href="support.html" class="text-purple-400 font-bold underline">Contact Support ➔</a>
+      <span>Have questions or feedback?</span>
+      <a href="support.html" class="text-fuchsia-400 font-bold underline">Visit Support Center ➔</a>
     </div>
   </div>
 </body>

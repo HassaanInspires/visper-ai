@@ -3,70 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Support & FAQs — Visper AI</title>
+  <title>Support & Contact Center — Visper AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #050508; color: #cbd5e1; }
-    .glass-panel { background: rgba(13, 15, 23, 0.85); border: 1px solid rgba(168, 85, 247, 0.25); backdrop-filter: blur(35px); }
+    body { font-family: 'Inter', sans-serif; background-color: #07050e; color: #f3e8ff; }
+    h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-card { background: rgba(20, 14, 32, 0.7); border: 1px solid rgba(217, 70, 239, 0.2); backdrop-filter: blur(30px); }
   </style>
 </head>
-<body class="bg-[#050508] text-slate-300 py-12 px-6">
-  <div class="max-w-4xl mx-auto glass-panel p-8 md:p-12 rounded-3xl border border-white/10 space-y-8">
+<body class="bg-[#07050e] text-slate-200 py-12 px-6 min-h-screen">
+  <div class="max-w-4xl mx-auto glass-card p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
     
     <!-- Header -->
     <div class="flex items-center justify-between pb-6 border-b border-white/10">
       <div>
-        <h1 class="text-3xl font-extrabold text-white">Visper AI Support & Help Center</h1>
-        <p class="text-xs text-purple-400 font-semibold mt-1">Frequently Asked Questions & Community Help</p>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white font-display">Support & Help Center</h1>
+        <p class="text-xs text-fuchsia-400 font-semibold mt-1">Frequently Asked Questions & Contact Information</p>
       </div>
-      <a href="index.html" class="text-xs bg-purple-600/30 border border-purple-500/40 text-purple-300 px-3 py-1.5 rounded-xl font-bold hover:bg-purple-600/50 transition">← Back to Home</a>
+      <a href="index.html" class="text-xs bg-fuchsia-600/30 border border-fuchsia-500/40 text-fuchsia-300 px-4 py-2 rounded-xl font-bold hover:bg-fuchsia-600/50 transition">← Back to Home</a>
     </div>
 
-    <!-- FAQ Cards (Plain English) -->
+    <!-- FAQ Accordions (Layman English) -->
     <div class="space-y-4">
-      <h2 class="text-xl font-bold text-white">💡 Frequently Asked Questions (FAQs)</h2>
+      <h2 class="text-2xl font-bold text-white font-display">💡 Frequently Asked Questions</h2>
 
-      <div class="bg-white/5 p-4 rounded-xl border border-white/10 space-y-1">
-        <h3 class="text-sm font-bold text-purple-300">Is Visper AI free to use?</h3>
-        <p class="text-xs text-slate-300">Yes! You can use Visper AI for free with Chrome's built-in offline Gemini Nano model, or plug in your own API key for DeepSeek, Gemini, Claude, or ChatGPT.</p>
+      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
+        <h3 class="text-base font-bold text-fuchsia-300 font-display">Is Visper AI free to use?</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">Yes! You can use Visper AI for free with Chrome's built-in offline Gemini Nano model, or plug in your own API key for DeepSeek, Gemini, Claude 3.5, or ChatGPT.</p>
       </div>
 
-      <div class="bg-white/5 p-4 rounded-xl border border-white/10 space-y-1">
-        <h3 class="text-sm font-bold text-purple-300">Is my browser history or password safe?</h3>
-        <p class="text-xs text-slate-300">100% Yes. Visper AI never reads your passwords, bank details, or private form data. All extension data stays saved locally on your device.</p>
+      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
+        <h3 class="text-base font-bold text-fuchsia-300 font-display">Is my browser history or password safe?</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">100% Yes. Visper AI never reads your passwords, credit cards, or private form data. All extension chat history and document vectors remain saved locally on your device.</p>
       </div>
 
-      <div class="bg-white/5 p-4 rounded-xl border border-white/10 space-y-1">
-        <h3 class="text-sm font-bold text-purple-300">How do I summarize a YouTube video?</h3>
-        <p class="text-xs text-slate-300">Open any YouTube video and click the Visper AI sidebar button. Select 📺 <b>YouTube Mode</b> and ask Visper to <i>"Summarize this video"</i>!</p>
+      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
+        <h3 class="text-base font-bold text-fuchsia-300 font-display">How do I summarize a YouTube video in English or Urdu?</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">Open any YouTube video and click the Visper AI sidebar icon. Select 📺 <b>YouTube Mode</b> and ask Visper to <i>"Summarize this video in Urdu"</i> or <i>"Give me key takeaways in English"</i>.</p>
       </div>
 
-      <div class="bg-white/5 p-4 rounded-xl border border-white/10 space-y-1">
-        <h3 class="text-sm font-bold text-purple-300">What if I encounter an error or bug?</h3>
-        <p class="text-xs text-slate-300">You can open a bug report directly on our GitHub Issue tracker, and our development team will assist you right away.</p>
+      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
+        <h3 class="text-base font-bold text-fuchsia-300 font-display">What if I encounter an error or bug?</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">You can submit a bug report directly on our GitHub Issue tracker or send an email to our team, and we will assist you promptly.</p>
       </div>
     </div>
 
-    <!-- Contact & Issue Buttons -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/10">
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3">
-        <div class="text-2xl">🐛</div>
-        <h3 class="text-base font-bold text-white">Report a Bug on GitHub</h3>
-        <p class="text-xs text-slate-400">Encountered an error? Submit an issue on our GitHub repository tracker.</p>
-        <a href="https://github.com/HassaanInspires/visper-ai/issues" target="_blank" class="inline-block bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition">
-          Open GitHub Issue ➔
-        </a>
+    <!-- Contact & Bug Report Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+      
+      <!-- Direct Email Card -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
+        <div class="text-3xl">📧</div>
+        <h3 class="text-lg font-bold text-white font-display">Direct Email Support</h3>
+        <p class="text-xs text-slate-400">Need personal support or partnership inquiries? Email developer support:</p>
+        <div class="pt-2">
+          <a href="mailto:info@muhammadhassaankhan.com" class="inline-block bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-lg">
+            info@muhammadhassaankhan.com ➔
+          </a>
+        </div>
       </div>
 
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3">
-        <div class="text-2xl">📧</div>
-        <h3 class="text-base font-bold text-white">Direct Email Support</h3>
-        <p class="text-xs text-slate-400">Need personal support or partnership inquiries? Email our developer team.</p>
-        <a href="mailto:support@visper-ai.org" class="inline-block bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl">
-          Contact via Email ➔
-        </a>
+      <!-- GitHub Bug Tracker Card -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
+        <div class="text-3xl">🐛</div>
+        <h3 class="text-lg font-bold text-white font-display">Report an Issue on GitHub</h3>
+        <p class="text-xs text-slate-400">Encountered an issue or feature request? Open an issue on our GitHub repository.</p>
+        <div class="pt-2">
+          <a href="https://github.com/HassaanInspires/visper-ai/issues" target="_blank" class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition">
+            GitHub Issue Tracker ➔
+          </a>
+        </div>
       </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
+      <span>Visper AI Developer Team</span>
+      <a href="privacy.html" class="text-fuchsia-400 font-bold underline">Read Privacy Policy ➔</a>
     </div>
   </div>
 </body>
