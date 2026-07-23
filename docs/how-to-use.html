@@ -3,82 +3,96 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How to Use Visper AI — Simple Step-by-Step Guide</title>
+  <title>How to Use Visper AI | Step-by-Step Guide</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #07050e; color: #f3e8ff; }
-    h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .glass-card { background: rgba(20, 14, 32, 0.7); border: 1px solid rgba(217, 70, 239, 0.2); backdrop-filter: blur(30px); }
+    .font-heading { font-family: 'DM Sans', sans-serif; }
+    .font-serif-italic { font-family: 'Playfair Display', serif; font-style: italic; }
+    .card-dark { background-color: #160c26; border: 1px solid rgba(217, 70, 239, 0.2); }
   </style>
 </head>
-<body class="bg-[#07050e] text-slate-200 py-12 px-6 min-h-screen">
-  <div class="max-w-4xl mx-auto glass-card p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
+<body class="bg-[#07050e] text-slate-200 py-16 px-6 min-h-screen">
+  
+  <div class="max-w-4xl mx-auto space-y-10">
     
-    <!-- Header -->
-    <div class="flex items-center justify-between pb-6 border-b border-white/10">
+    <!-- Top Pill Bar -->
+    <div class="flex items-center justify-between bg-black/40 border border-white/10 p-3 rounded-full backdrop-blur-xl">
+      <a href="index.html" class="flex items-center gap-2 pl-2">
+        <div class="w-7 h-7 rounded-full bg-fuchsia-600 flex items-center justify-center text-white font-bold text-xs">V</div>
+        <span class="font-heading font-bold text-white text-sm">Visper AI</span>
+      </a>
+      <a href="index.html" class="text-xs bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-1.5 rounded-full transition">← Back to Home</a>
+    </div>
+
+    <!-- Main Container -->
+    <div class="card-dark p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
       <div>
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-white font-display">How to Use Visper AI</h1>
-        <p class="text-xs text-fuchsia-400 font-semibold mt-1">Easy Step-by-Step Guide for Everyone</p>
+        <span class="text-xs text-fuchsia-400 font-bold uppercase tracking-widest">User Manual</span>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-white font-heading mt-1">
+          Simple 4 steps to <span class="font-serif-italic text-fuchsia-400">master Visper.</span>
+        </h1>
       </div>
-      <a href="index.html" class="text-xs bg-fuchsia-600/30 border border-fuchsia-500/40 text-fuchsia-300 px-4 py-2 rounded-xl font-bold hover:bg-fuchsia-600/50 transition">← Back to Home</a>
-    </div>
 
-    <!-- Step 1 -->
-    <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-      <div class="flex items-center gap-3">
-        <span class="w-9 h-9 rounded-xl bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-display shadow-lg">1</span>
-        <h2 class="text-lg font-bold text-white font-display">Install & Pin Visper AI in Chrome</h2>
+      <!-- Step 1 -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-heading">1</span>
+          <h2 class="text-lg font-bold text-white font-heading">Install & Pin in Chrome</h2>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed pl-11">
+          Click <b>"Add to Chrome"</b> on the Chrome Web Store page. Once installed, click the puzzle piece icon 🧩 at the top right of Chrome and pin 📌 <b>Visper AI</b> to your toolbar.
+        </p>
       </div>
-      <p class="text-xs text-slate-300 leading-relaxed pl-12">
-        Click <b>"Add to Chrome"</b> on the Chrome Web Store page. Once installed, click the puzzle piece icon 🧩 at the top right of your Chrome browser and pin 📌 <b>Visper AI</b> to your toolbar for quick 1-click access anytime.
-      </p>
-    </div>
 
-    <!-- Step 2 -->
-    <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-      <div class="flex items-center gap-3">
-        <span class="w-9 h-9 rounded-xl bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-display shadow-lg">2</span>
-        <h2 class="text-lg font-bold text-white font-display">Choose Your AI Model</h2>
+      <!-- Step 2 -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-heading">2</span>
+          <h2 class="text-lg font-bold text-white font-heading">Select Your AI Model</h2>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed pl-11">
+          Open the Visper sidebar. Click the top-right model selector to choose DeepSeek, Gemini, Claude 3.5, or ChatGPT. Add your API key in settings ⚙️ or select <b>Offline Gemini Nano</b> for free local completions.
+        </p>
       </div>
-      <p class="text-xs text-slate-300 leading-relaxed pl-12">
-        Open the Visper sidebar. Click the model selector dropdown at the top right to choose your preferred AI (DeepSeek, Google Gemini, Claude 3.5, or ChatGPT). You can add your API key in settings ⚙️, or choose <b>Offline Gemini Nano</b> for free local completions.
-      </p>
-    </div>
 
-    <!-- Step 3 -->
-    <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-      <div class="flex items-center gap-3">
-        <span class="w-9 h-9 rounded-xl bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-display shadow-lg">3</span>
-        <h2 class="text-lg font-bold text-white font-display">Select an Agent Mode</h2>
+      <!-- Step 3 -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-heading">3</span>
+          <h2 class="text-lg font-bold text-white font-heading">Choose a Mode</h2>
+        </div>
+        <div class="pl-11 text-xs text-slate-300 space-y-1.5">
+          <p>Visper AI has specialized modes for your browser tasks:</p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><b>⚡ Auto Mode:</b> Automatically detects the page context and picks the right tool.</li>
+            <li><b>🛍️ Shopping Mode:</b> Selects clothing sizes (Small/Medium/Large), tests coupons, and fills forms.</li>
+            <li><b>🔍 Web Research:</b> Searches multiple websites and organizes key points into simple comparison tables.</li>
+            <li><b>📺 YouTube Mode:</b> Summarizes long video lectures into clear English and Urdu bullet points.</li>
+          </ul>
+        </div>
       </div>
-      <div class="pl-12 text-xs text-slate-300 space-y-2">
-        <p>Visper AI offers targeted modes for your daily web tasks:</p>
-        <ul class="list-disc pl-5 space-y-1 text-slate-300">
-          <li><b>⚡ Auto Mode:</b> Automatically detects the page you are on and chooses the right tools.</li>
-          <li><b>🛍️ Shopping Mode:</b> Selects clothing sizes (Small/Medium/Large), finds coupons, and fills out checkout forms.</li>
-          <li><b>🔍 Web Research:</b> Searches multiple websites and organizes key facts into simple comparison tables.</li>
-          <li><b>📺 YouTube Mode:</b> Summarizes long video lectures into clear English and Urdu bullet points.</li>
-        </ul>
-      </div>
-    </div>
 
-    <!-- Step 4 -->
-    <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-      <div class="flex items-center gap-3">
-        <span class="w-9 h-9 rounded-xl bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-display shadow-lg">4</span>
-        <h2 class="text-lg font-bold text-white font-display">Chat & Automate</h2>
+      <!-- Step 4 -->
+      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full bg-fuchsia-600 text-white font-bold flex items-center justify-center text-sm font-heading">4</span>
+          <h2 class="text-lg font-bold text-white font-heading">Chat & Automate</h2>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed pl-11">
+          Type your prompt into the bottom chat box! Ask Visper to <i>"Summarize this video in Urdu"</i>, <i>"Pick size Medium"</i>, or <i>"Compare prices"</i>.
+        </p>
       </div>
-      <p class="text-xs text-slate-300 leading-relaxed pl-12">
-        Type your prompt into the bottom chat box! You can ask <i>"Summarize this page"</i>, <i>"Select size Medium"</i>, or <i>"Find the best price"</i>. Visper AI will take care of the rest seamlessly.
-      </p>
-    </div>
 
-    <!-- Footer -->
-    <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
-      <span>Need additional help?</span>
-      <a href="support.html" class="text-fuchsia-400 font-bold underline">Visit Support & Contact Center ➔</a>
+      <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
+        <span>Need help or support?</span>
+        <a href="support.html" class="text-fuchsia-400 font-bold underline">Visit Support Center ➔</a>
+      </div>
     </div>
   </div>
+
 </body>
 </html>

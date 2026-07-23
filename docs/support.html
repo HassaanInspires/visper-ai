@@ -3,86 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Support & Contact Center — Visper AI</title>
+  <title>Support & Contact Center | Visper AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #07050e; color: #f3e8ff; }
-    h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .glass-card { background: rgba(20, 14, 32, 0.7); border: 1px solid rgba(217, 70, 239, 0.2); backdrop-filter: blur(30px); }
+    .font-heading { font-family: 'DM Sans', sans-serif; }
+    .font-serif-italic { font-family: 'Playfair Display', serif; font-style: italic; }
+    .card-dark { background-color: #160c26; border: 1px solid rgba(217, 70, 239, 0.2); }
   </style>
 </head>
-<body class="bg-[#07050e] text-slate-200 py-12 px-6 min-h-screen">
-  <div class="max-w-4xl mx-auto glass-card p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
+<body class="bg-[#07050e] text-slate-200 py-16 px-6 min-h-screen">
+  
+  <div class="max-w-4xl mx-auto space-y-10">
     
-    <!-- Header -->
-    <div class="flex items-center justify-between pb-6 border-b border-white/10">
+    <!-- Top Pill Bar -->
+    <div class="flex items-center justify-between bg-black/40 border border-white/10 p-3 rounded-full backdrop-blur-xl">
+      <a href="index.html" class="flex items-center gap-2 pl-2">
+        <div class="w-7 h-7 rounded-full bg-fuchsia-600 flex items-center justify-center text-white font-bold text-xs">V</div>
+        <span class="font-heading font-bold text-white text-sm">Visper AI</span>
+      </a>
+      <a href="index.html" class="text-xs bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-1.5 rounded-full transition">← Back to Home</a>
+    </div>
+
+    <!-- Main Container -->
+    <div class="card-dark p-8 md:p-12 rounded-3xl space-y-8 shadow-2xl">
       <div>
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-white font-display">Support & Help Center</h1>
-        <p class="text-xs text-fuchsia-400 font-semibold mt-1">Frequently Asked Questions & Contact Information</p>
-      </div>
-      <a href="index.html" class="text-xs bg-fuchsia-600/30 border border-fuchsia-500/40 text-fuchsia-300 px-4 py-2 rounded-xl font-bold hover:bg-fuchsia-600/50 transition">← Back to Home</a>
-    </div>
-
-    <!-- FAQ Accordions (Layman English) -->
-    <div class="space-y-4">
-      <h2 class="text-2xl font-bold text-white font-display">💡 Frequently Asked Questions</h2>
-
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
-        <h3 class="text-base font-bold text-fuchsia-300 font-display">Is Visper AI free to use?</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">Yes! You can use Visper AI for free with Chrome's built-in offline Gemini Nano model, or plug in your own API key for DeepSeek, Gemini, Claude 3.5, or ChatGPT.</p>
+        <span class="text-xs text-fuchsia-400 font-bold uppercase tracking-widest">Help & Community</span>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-white font-heading mt-1">
+          Support & <span class="font-serif-italic text-fuchsia-400">Contact Center.</span>
+        </h1>
       </div>
 
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
-        <h3 class="text-base font-bold text-fuchsia-300 font-display">Is my browser history or password safe?</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">100% Yes. Visper AI never reads your passwords, credit cards, or private form data. All extension chat history and document vectors remain saved locally on your device.</p>
-      </div>
+      <!-- FAQ List -->
+      <div class="space-y-4 border-t border-white/10 pt-6">
+        <h2 class="text-xl font-bold text-white font-heading">💡 Frequently Asked Questions</h2>
 
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
-        <h3 class="text-base font-bold text-fuchsia-300 font-display">How do I summarize a YouTube video in English or Urdu?</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">Open any YouTube video and click the Visper AI sidebar icon. Select 📺 <b>YouTube Mode</b> and ask Visper to <i>"Summarize this video in Urdu"</i> or <i>"Give me key takeaways in English"</i>.</p>
-      </div>
+        <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1">
+          <h3 class="text-base font-bold text-fuchsia-300 font-heading">Is Visper AI free to use?</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Yes! You can use Visper AI for free with Chrome's built-in offline Gemini Nano model, or plug in your own API key for DeepSeek, Gemini, Claude 3.5, or ChatGPT.</p>
+        </div>
 
-      <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1.5">
-        <h3 class="text-base font-bold text-fuchsia-300 font-display">What if I encounter an error or bug?</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">You can submit a bug report directly on our GitHub Issue tracker or send an email to our team, and we will assist you promptly.</p>
-      </div>
-    </div>
+        <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1">
+          <h3 class="text-base font-bold text-fuchsia-300 font-heading">Is my browser data or password safe?</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">100% Yes. Visper AI never reads your passwords, credit cards, or private form data. All chat history and document vectors stay stored locally on your machine.</p>
+        </div>
 
-    <!-- Contact & Bug Report Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/10">
-      
-      <!-- Direct Email Card -->
-      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-        <div class="text-3xl">📧</div>
-        <h3 class="text-lg font-bold text-white font-display">Direct Email Support</h3>
-        <p class="text-xs text-slate-400">Need personal support or partnership inquiries? Email developer support:</p>
-        <div class="pt-2">
-          <a href="mailto:info@muhammadhassaankhan.com" class="inline-block bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-lg">
-            info@muhammadhassaankhan.com ➔
-          </a>
+        <div class="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-1">
+          <h3 class="text-base font-bold text-fuchsia-300 font-heading">How do I summarize a YouTube video in English or Urdu?</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Open any YouTube video and launch the Visper AI sidebar. Select 📺 <b>YouTube Mode</b> and ask Visper to <i>"Summarize this video in Urdu"</i> or <i>"Give me key takeaways in English"</i>.</p>
         </div>
       </div>
 
-      <!-- GitHub Bug Tracker Card -->
-      <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
-        <div class="text-3xl">🐛</div>
-        <h3 class="text-lg font-bold text-white font-display">Report an Issue on GitHub</h3>
-        <p class="text-xs text-slate-400">Encountered an issue or feature request? Open an issue on our GitHub repository.</p>
-        <div class="pt-2">
-          <a href="https://github.com/HassaanInspires/visper-ai/issues" target="_blank" class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition">
-            GitHub Issue Tracker ➔
-          </a>
+      <!-- Contact Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+        
+        <!-- Direct Email Card -->
+        <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
+          <div class="text-3xl">📧</div>
+          <h3 class="text-lg font-bold text-white font-heading">Direct Developer Email</h3>
+          <p class="text-xs text-slate-400">Need personal support or partnership inquiries? Email developer support:</p>
+          <div class="pt-2">
+            <a href="mailto:info@muhammadhassaankhan.com" class="inline-block bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold px-5 py-2.5 rounded-full transition shadow-lg">
+              info@muhammadhassaankhan.com ➔
+            </a>
+          </div>
         </div>
+
+        <!-- GitHub Bug Tracker Card -->
+        <div class="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-3">
+          <div class="text-3xl">🐛</div>
+          <h3 class="text-lg font-bold text-white font-heading">GitHub Issue Tracker</h3>
+          <p class="text-xs text-slate-400">Encountered an issue or feature request? Open an issue on our GitHub repository.</p>
+          <div class="pt-2">
+            <a href="https://github.com/HassaanInspires/visper-ai/issues" target="_blank" class="inline-block bg-white/10 border border-white/20 hover:bg-white/20 text-white text-xs font-bold px-5 py-2.5 rounded-full transition">
+              GitHub Issues ➔
+            </a>
+          </div>
+        </div>
+
       </div>
 
-    </div>
-
-    <!-- Footer -->
-    <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
-      <span>Visper AI Developer Team</span>
-      <a href="privacy.html" class="text-fuchsia-400 font-bold underline">Read Privacy Policy ➔</a>
+      <div class="pt-6 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
+        <span>Visper AI Developer Support</span>
+        <a href="privacy.html" class="text-fuchsia-400 font-bold underline">Read Privacy Policy ➔</a>
+      </div>
     </div>
   </div>
+
 </body>
 </html>
