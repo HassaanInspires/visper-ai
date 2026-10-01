@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Archives & Scratch
+*.zip
+scratch/
+audit_report/
+/*.jpg
+/*.png
+public/chrome_store_hero_banner_*.jpg

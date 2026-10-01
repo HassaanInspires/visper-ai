@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Settings as SettingsIcon, 
   Send, 
@@ -42,6 +42,16 @@ interface PresetConfig {
   name: string;
   canvas: string;
   blobs: string[];
+}
+
+interface ActiveWebpageState {
+  id?: number | null;
+  url: string;
+  title: string;
+  favIconUrl?: string;
+  isInjectable: boolean;
+  extractedText?: string;
+  isExtracting: boolean;
 }
 
 const bgPresets: Record<BgPresetKey, PresetConfig> = {
@@ -120,7 +130,7 @@ function App() {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [activeModel, setActiveModel] = useState("gemini-nano");
+  const [activeModel, setActiveModel] = useState("gemini");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isConnected] = useState(true);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -128,6 +138,8 @@ function App() {
   const [enableCloudSync, setEnableCloudSync] = useState(false);
   
   const [apiKeys, setApiKeys] = useState({
+    gemini: "",
+    geminiModel: "gemini-3.5-flash-lite",
     groq: "",
     groqModel: "llama-3.3-70b-specdec",
     openrouter: "",
@@ -148,6 +160,7 @@ function App() {
   });
 
   const [fetchedModels, setFetchedModels] = useState<{ [key: string]: string[] }>({
+    gemini: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"],
     openai: [],
     claude: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
     deepseek: [],
@@ -173,6 +186,17 @@ function App() {
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [isWebSearchLoading, setIsWebSearchLoading] = useState(false);
   const [screenshotAttachment, setScreenshotAttachment] = useState<string | null>(null);
+
+  // Sider-style Active Page Context state
+  const [activeWebpage, setActiveWebpage] = useState<ActiveWebpageState>({
+    id: null,
+    url: "",
+    title: "",
+    isInjectable: false,
+    extractedText: "",
+    isExtracting: false
+  });
+  const [includePageContext, setIncludePageContext] = useState(true);
 
   // YouTube watch helper states
   const [youtubeVideoId, setYoutubeVideoId] = useState("");
@@ -220,6 +244,9 @@ function App() {
           (res) => {
             if (res.apiKeys) {
               const keysObj = res.apiKeys as typeof apiKeys;
+              if (!keysObj.geminiModel || keysObj.geminiModel === "gemini-3.8-flash") {
+                keysObj.geminiModel = "gemini-3.5-flash-lite";
+              }
               setApiKeys(prev => ({ ...prev, ...keysObj }));
               apiKeysRef.current = keysObj;
             }
@@ -324,51 +351,115 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const checkActiveTabForYoutube = async () => {
-      try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const tab = tabs[0];
-        if (tab?.url?.includes("youtube.com/watch")) {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: "GET_YOUTUBE_TRANSCRIPT" }, (response) => {
-              if (response && response.success) {
-                setYoutubeVideoId(response.videoId);
-                setYoutubeTitle(response.title);
-                setYoutubeTranscript(response.transcript);
-                setYoutubeDescription(response.description || "");
-              } else {
-                setYoutubeVideoId(tab.url!.split("v=")[1]?.split("&")[0] || "");
-                setYoutubeTitle(tab.title || "YouTube Video");
-                setYoutubeTranscript(null);
-                setYoutubeDescription("");
-              }
+  const syncActiveTabInfo = useCallback(async () => {
+    try {
+      const tabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
+        chrome.tabs.query({ active: true, lastFocusedWindow: true }, (focusedTabs) => {
+          if (focusedTabs && focusedTabs.length > 0) {
+            resolve(focusedTabs);
+          } else {
+            chrome.tabs.query({ active: true, currentWindow: true }, (currentTabs) => {
+              resolve(currentTabs || []);
             });
           }
-        } else {
-          setYoutubeVideoId("");
-          setYoutubeTitle("");
-          setYoutubeTranscript(null);
-          setYoutubeDescription("");
+        });
+      });
+
+      const tab = tabs[0];
+      if (!tab || !tab.id) return;
+
+      const url = tab.url || "";
+      const BLOCKED_PROTOCOLS = ["chrome://", "chrome-extension://", "about:", "edge://", "brave://", "data:", "file://", "devtools://"];
+      const isBlocked = BLOCKED_PROTOCOLS.some(p => url.startsWith(p));
+      const isInjectable = !isBlocked && !!tab.id;
+
+      setActiveWebpage(prev => {
+        if (prev.id === tab.id && prev.url === url && prev.title === tab.title && prev.extractedText) {
+          return prev;
         }
-      } catch (e) {
-        // Not active tab or restricted
+        return {
+          id: tab.id,
+          url,
+          title: tab.title || "Webpage",
+          favIconUrl: tab.favIconUrl,
+          isInjectable,
+          extractedText: (prev.id === tab.id && prev.url === url) ? prev.extractedText : "",
+          isExtracting: false
+        };
+      });
+
+      // YouTube watch check
+      if (url.includes("youtube.com/watch") || url.includes("youtu.be/")) {
+        chrome.tabs.sendMessage(tab.id, { type: "GET_YOUTUBE_TRANSCRIPT" }, (response) => {
+          if (chrome.runtime.lastError) {
+            setYoutubeVideoId(url.split("v=")[1]?.split("&")[0] || "");
+            setYoutubeTitle(tab.title || "YouTube Video");
+            setYoutubeTranscript(null);
+            setYoutubeDescription("");
+            return;
+          }
+          if (response && response.success) {
+            setYoutubeVideoId(response.videoId || url.split("v=")[1]?.split("&")[0] || "");
+            setYoutubeTitle(response.title || tab.title || "YouTube Video");
+            setYoutubeTranscript(response.transcript || null);
+            setYoutubeDescription(response.description || "");
+          } else {
+            setYoutubeVideoId(url.split("v=")[1]?.split("&")[0] || "");
+            setYoutubeTitle(tab.title || "YouTube Video");
+            setYoutubeTranscript(null);
+            setYoutubeDescription("");
+          }
+        });
+      } else {
+        setYoutubeVideoId("");
+        setYoutubeTitle("");
+        setYoutubeTranscript(null);
+        setYoutubeDescription("");
+      }
+
+      // Pre-extract page text into memory for instant answers
+      if (isInjectable && tab.status === "complete") {
+        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_PAGE_CONTENT" }, (response) => {
+          if (!chrome.runtime.lastError && response?.success && response.text) {
+            setActiveWebpage(prev => {
+              if (prev.id === tab.id) {
+                return {
+                  ...prev,
+                  extractedText: response.text,
+                  title: response.title || tab.title || prev.title,
+                  url: response.url || tab.url || prev.url
+                };
+              }
+              return prev;
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to sync active tab info:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncActiveTabInfo();
+
+    const onActivated = () => {
+      syncActiveTabInfo();
+    };
+
+    const onUpdated = (_tId: number, changeInfo: any) => {
+      if (changeInfo.status === "complete" || changeInfo.url) {
+        syncActiveTabInfo();
       }
     };
 
-    checkActiveTabForYoutube();
-
-    const tabListener = () => {
-      checkActiveTabForYoutube();
-    };
-
-    chrome.tabs.onActivated.addListener(tabListener);
-    chrome.tabs.onUpdated.addListener(tabListener);
+    chrome.tabs.onActivated.addListener(onActivated);
+    chrome.tabs.onUpdated.addListener(onUpdated);
     return () => {
-      chrome.tabs.onActivated.removeListener(tabListener);
-      chrome.tabs.onUpdated.removeListener(tabListener);
+      chrome.tabs.onActivated.removeListener(onActivated);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
     };
-  }, []);
+  }, [syncActiveTabInfo]);
 
   // Helper to wait until a tab has finished navigating/loading (complete status)
   // Prevents sending messages or injecting scripts while the page is transient/unloading
@@ -495,17 +586,20 @@ Output ONLY the generated writing. Do not include any introductory or concluding
 
     try {
       let fullText = "";
+      const writeStreamId = "write-" + Math.random().toString(36).slice(2);
 
       await chrome.runtime.sendMessage({
         type: "GENERATE_STREAM",
         prompt: formatPrompt,
         history: [],
         model: activeModel,
-        keys: apiKeys
+        keys: apiKeys,
+        streamId: writeStreamId
       });
 
       const chunkListener = (message: any) => {
         if (message.target === "inline-composer") return;
+        if (message.streamId && message.streamId !== writeStreamId) return;
         if (message.type === "STREAM_CHUNK" && message.text) {
           fullText += message.text;
           setWriteResult(fullText);
@@ -542,17 +636,20 @@ Output ONLY the translated text. Do not include any introductory, explanatory, o
 
     try {
       let fullText = "";
+      const transStreamId = "trans-" + Math.random().toString(36).slice(2);
 
       await chrome.runtime.sendMessage({
         type: "GENERATE_STREAM",
         prompt: translatePrompt,
         history: [],
         model: activeModel,
-        keys: apiKeys
+        keys: apiKeys,
+        streamId: transStreamId
       });
 
       const chunkListener = (message: any) => {
         if (message.target === "inline-composer") return;
+        if (message.streamId && message.streamId !== transStreamId) return;
         if (message.type === "STREAM_CHUNK" && message.text) {
           fullText += message.text;
           setTranslateResult(fullText);
@@ -595,17 +692,20 @@ Output ONLY the translated text. Do not include any introductory, explanatory, o
 
       setIsGenerating(true);
       let fullText = "";
+      const pageTransStreamId = "trans-page-" + Math.random().toString(36).slice(2);
 
       await chrome.runtime.sendMessage({
         type: "GENERATE_STREAM",
         prompt: translatePrompt,
         history: [],
         model: activeModel,
-        keys: apiKeys
+        keys: apiKeys,
+        streamId: pageTransStreamId
       });
 
       const chunkListener = (message: any) => {
         if (message.target === "inline-composer") return;
+        if (message.streamId && message.streamId !== pageTransStreamId) return;
         if (message.type === "STREAM_CHUNK" && message.text) {
           fullText += message.text;
           setTranslateResult(fullText);
@@ -677,7 +777,7 @@ Output ONLY the translated text. Do not include any introductory, explanatory, o
         targetSession = list[0];
         setActiveSession(list[0]);
       } else {
-        const newSess = await LocalDb.createSession("Web Page Summary");
+        const newSess = await LocalDb.createSession("Webpage Summary");
         targetSession = newSess;
         setActiveSession(newSess);
         const refreshed = await LocalDb.getSessions();
@@ -689,46 +789,55 @@ Output ONLY the translated text. Do not include any introductory, explanatory, o
 
     // Load active session messages first
     const sessionMsgs = await LocalDb.getMessages(targetSession.id);
-    setMessages(sessionMsgs);
-
-    // Show visual status log in chat
-    const logMsg = await LocalDb.addMessage(targetSession.id, "assistant", `[Scraping webpage text content...]`);
-    let runningMsgs = [...sessionMsgs, logMsg];
-    setMessages(runningMsgs);
+    const cleanSessionMsgs = sessionMsgs.filter(m => !m.text.startsWith('[DOM extract_page_content') && !m.text.startsWith('[Scraping webpage text'));
+    setMessages(cleanSessionMsgs);
 
     try {
-      // 2. Scrape webpage content via sendToActiveTab helper
-      const res = await sendToActiveTab({ type: "EXTRACT_PAGE_CONTENT" });
-      if (!res || !res.success) {
-        throw new Error(res?.error || "Could not extract page text.");
+      let pageText = activeWebpage.extractedText;
+      let pageTitle = activeWebpage.title;
+      let pageUrl = activeWebpage.url;
+
+      if (!pageText) {
+        const res = await sendToActiveTab({ type: "EXTRACT_PAGE_CONTENT" });
+        if (res && res.success && res.text) {
+          pageText = res.text;
+          pageTitle = res.title || pageTitle;
+          pageUrl = res.url || pageUrl;
+          setActiveWebpage(prev => ({ ...prev, extractedText: pageText, title: pageTitle, url: pageUrl }));
+        }
       }
 
-      // Update log message to show success
-      const successLog = await LocalDb.addMessage(targetSession.id, "assistant", `[✓ Successfully scraped page: "${res.title}"]`);
-      runningMsgs = [...sessionMsgs, successLog];
-      setMessages(runningMsgs);
+      if (!pageText) {
+        throw new Error("Could not extract clean text from this page. Please refresh or navigate to a readable page.");
+      }
 
-      // 3. Formulate the prompt
-      const prompt = `Summarize the active webpage in structured bullet points, detailing key takeaways.
-URL: ${res.url}
-Title: ${res.title}
-
-Content:
-${res.text}`;
-
-      // 4. Add the prompt as user message
-      const userMsg = await LocalDb.addMessage(targetSession.id, "user", `Summarize the current page: "${res.title}"`);
-      runningMsgs = [...runningMsgs, userMsg];
+      // Add the prompt as clean user message
+      const userMsg = await LocalDb.addMessage(targetSession.id, "user", `Summarize this page: "${pageTitle}"`);
+      const runningMsgs = [...cleanSessionMsgs, userMsg];
       setMessages(runningMsgs);
 
       // Reset agent loop counter on summarize page action
       agentLoopCountRef.current = 0;
 
-      // 5. Run the model stream
+      // Formulate the prompt with page context
+      const prompt = `[CURRENT WEBPAGE CONTEXT]
+URL: ${pageUrl}
+Title: ${pageTitle}
+
+Content:
+${pageText.slice(0, 12000)}
+
+[INSTRUCTION]
+Provide a clear, well-structured executive summary of this webpage in clean markdown:
+- 📌 **Overview**: A 2-sentence executive summary.
+- 🔑 **Key Takeaways**: 4-6 bullet points of the most essential ideas or facts.
+- 💡 **Actionable Takeaways / Practical Meaning**: Significance or next steps.`;
+
+      // 5. Run the model stream directly
       executeModelStream(prompt, targetSession.id, runningMsgs);
     } catch (err: any) {
-      const errMsg = await LocalDb.addMessage(targetSession.id, "assistant", `[✗ Page Scraping Failed: ${err.message}]`);
-      setMessages([...sessionMsgs, errMsg]);
+      const errMsg = await LocalDb.addMessage(targetSession.id, "assistant", `⚠️ Could not summarize page: ${err.message}`);
+      setMessages([...cleanSessionMsgs, errMsg]);
     }
   };
 
@@ -946,7 +1055,20 @@ ${desc || "No description available."}`;
 
   const loadMessages = async (sessionId: string) => {
     const msgs = await LocalDb.getMessages(sessionId);
-    setMessages(msgs);
+    const cleanMsgs = msgs.filter(m => {
+      const t = m.text.trim();
+      return !(
+        t.startsWith('[DOM extract_page_content') || 
+        t.startsWith('[Scraping webpage text content...]') ||
+        t.startsWith('[✓ Extracted text from page') ||
+        t.startsWith('[✓ Successfully scraped page') ||
+        t.startsWith('--- Extracted Page Content') ||
+        t.startsWith('✅ Done — executed') ||
+        t.startsWith('⚠️ Completed ') ||
+        t.startsWith('⚠️ Maximum agent loop limit reached')
+      );
+    });
+    setMessages(cleanMsgs);
   };
 
   const createNewChat = async () => {
@@ -1108,9 +1230,10 @@ ${desc || "No description available."}`;
 
   // Listener for background streaming messages
   useEffect(() => {
-    const handleStreamMessage = (message: { type: string; text?: string; error?: string; target?: string; provider?: string }) => {
+    const handleStreamMessage = (message: { type: string; text?: string; error?: string; target?: string; provider?: string; streamId?: string }) => {
       if (message.target === "inline-composer") return;
       if (!streamingIdRef.current || !streamingSessionIdRef.current) return;
+      if (message.streamId && message.streamId !== streamingIdRef.current) return;
 
       if (message.type === "STREAM_CHUNK" && message.text) {
         const textToAppend = message.text;
@@ -1346,7 +1469,7 @@ ${desc || "No description available."}`;
         setMessages([...runningMsgs]);
 
         try {
-          const res = await executeEComAddToCart(data.size, data.quantity || 1);
+          const res = await executeEComAddToCart(data.size, data.quantity || 1, sendToActiveTab);
           const resMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${res.message}]`);
           runningMsgs = [...runningMsgs, resMsg];
           setMessages([...runningMsgs]);
@@ -1380,18 +1503,86 @@ ${desc || "No description available."}`;
         }
       }
 
-      // B. Legacy DOM interaction (fill, click, focus, scroll, etc.)
+      // B. Legacy DOM interaction (fill, click, focus, scroll, autofill_form, etc.)
       else if (data.action === "dom_interact" && data.domAction) {
-        // Deduplicate consecutive extract_page_content calls
-        if (data.domAction === "extract_page_content") {
-          const lastMsg = runningMsgs[runningMsgs.length - 1];
-          if (lastMsg && (lastMsg.text.includes("Extracted text from page") || lastMsg.text.includes("extract_page_content"))) {
-            console.log("Skipping duplicate consecutive extract_page_content action.");
-            const skipMsg = await LocalDb.addMessage(sessionId, "assistant", `[ℹ️ Page text already extracted in history. Formulating response...]`);
-            runningMsgs = [...runningMsgs, skipMsg];
+        if (data.domAction === "autofill_form") {
+          const fieldsToFill = data.fields || {};
+          const fieldNames = Object.keys(fieldsToFill).join(", ");
+          const logMsg = await LocalDb.addMessage(sessionId, "assistant",
+            `[DOM autofill_form: ${fieldNames || "fields"}]`
+          );
+          runningMsgs = [...runningMsgs, logMsg];
+          setMessages([...runningMsgs]);
+
+          try {
+            const result: any = await sendToActiveTab({
+              type: "DOM_INTERACT",
+              action: "autofill_form",
+              fields: fieldsToFill
+            });
+            const summaryMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${result?.message || "Autofill completed."}]`);
+            runningMsgs = [...runningMsgs, summaryMsg];
             setMessages([...runningMsgs]);
-            continue;
+            successCount++;
+          } catch (err: any) {
+            const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ Autofill failed: ${err.message}]`);
+            runningMsgs = [...runningMsgs, errMsg];
+            setMessages([...runningMsgs]);
+            failCount++;
+            lastErrorReason = err.message;
           }
+          await new Promise(r => setTimeout(r, 150));
+          continue;
+        }
+
+        if (data.domAction === "get_youtube_transcript") {
+          const logMsg = await LocalDb.addMessage(sessionId, "assistant", `[🎥 Fetching YouTube Transcript...]`);
+          runningMsgs = [...runningMsgs, logMsg];
+          setMessages([...runningMsgs]);
+
+          try {
+            const result: any = await performDomAction("get_youtube_transcript");
+            let successText = `[✓ ${result.message || "Transcript retrieved."}]`;
+            if (result.text) {
+              successText += `\n\n${result.text}`;
+            }
+            if (result.transcript) {
+              setYoutubeTranscript(result.transcript);
+            }
+            if (result.title) {
+              setYoutubeTitle(result.title);
+            }
+            const successMsg = await LocalDb.addMessage(sessionId, "assistant", successText);
+            runningMsgs = [...runningMsgs, successMsg];
+            setMessages([...runningMsgs]);
+            successCount++;
+          } catch (err: any) {
+            const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ YouTube Transcript fetch failed: ${err.message}]`);
+            runningMsgs = [...runningMsgs, errMsg];
+            setMessages([...runningMsgs]);
+            failCount++;
+            lastErrorReason = err.message;
+          }
+          await new Promise(r => setTimeout(r, 150));
+          continue;
+        }
+
+        // Handle extract_page_content silently without polluting the chat database
+        if (data.domAction === "extract_page_content") {
+          try {
+            const result: any = await performDomAction("extract_page_content");
+            if (result && result.text) {
+              setActiveWebpage(prev => ({
+                ...prev,
+                extractedText: result.text,
+                title: result.title || prev.title,
+                url: result.url || prev.url
+              }));
+            }
+          } catch (e) {
+            console.warn("Silent extract_page_content failed:", e);
+          }
+          continue;
         }
 
         const label = data.text || data.selector || data.tag || "element";
@@ -1403,10 +1594,41 @@ ${desc || "No description available."}`;
 
         try {
           const result: any = await performDomAction(data.domAction, data.tag, data.text, data.selector, data.value);
-          const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${result.message || "Done"}]`);
+          let successText = `[✓ ${result.message || "Done"}]`;
+          if (result.text) {
+            successText += `\n\n--- Extracted Page Content (${result.title || "Page"}) ---\n${result.text.slice(0, 15000)}\n--- End Page Content ---`;
+          }
+          const successMsg = await LocalDb.addMessage(sessionId, "assistant", successText);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
           successCount++;
+
+          // If the interaction triggered navigation (e.g. clicking a link/video), wait for page load & SPA hydration
+          if (result.navigating) {
+            console.log("DOM action triggered navigation, awaiting page load & SPA hydration...");
+            await new Promise<void>((resolve) => {
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                const activeTab = tabs[0];
+                if (!activeTab?.id) {
+                  setTimeout(resolve, 800);
+                  return;
+                }
+                const listener = (tId: number, info: any) => {
+                  if (tId === activeTab.id && (info.status === "complete" || info.url)) {
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    setTimeout(resolve, 800);
+                  }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+                setTimeout(() => {
+                  chrome.tabs.onUpdated.removeListener(listener);
+                  resolve();
+                }, 4000);
+              });
+            });
+            // Immediately sync active tab context
+            await syncActiveTabInfo();
+          }
         } catch (err: any) {
           const errMsg = await LocalDb.addMessage(sessionId, "assistant", `[✗ ${err.message}]`);
           runningMsgs = [...runningMsgs, errMsg];
@@ -1432,6 +1654,8 @@ ${desc || "No description available."}`;
 
         try {
           let message = "Completed successfully";
+          let targetTabId: number | null = null;
+
           if (actionType === "open_tab") {
             if (!targetUrl) throw new Error("URL is required to open a new tab.");
             if (openedTabCount >= 1) {
@@ -1443,10 +1667,24 @@ ${desc || "No description available."}`;
             }
             // If it has any scheme (e.g. about:, chrome://, mailto:), use as-is; otherwise prepend https://
             const finalUrl = targetUrl.match(/^[a-z0-9.+-]+:/i) ? targetUrl : `https://${targetUrl}`;
-            await new Promise<void>((resolve, reject) => {
-              chrome.tabs.create({ url: finalUrl }, () => {
-                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-                else resolve();
+            await new Promise<void>((resolve) => {
+              chrome.tabs.create({ url: finalUrl }, (tab) => {
+                if (chrome.runtime.lastError || !tab?.id) {
+                  resolve();
+                  return;
+                }
+                targetTabId = tab.id;
+                const listener = (tId: number, info: any) => {
+                  if (tId === tab.id && info.status === "complete") {
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    setTimeout(resolve, 400);
+                  }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+                setTimeout(() => {
+                  chrome.tabs.onUpdated.removeListener(listener);
+                  resolve();
+                }, 5000);
               });
             });
             openedTabCount++;
@@ -1455,16 +1693,26 @@ ${desc || "No description available."}`;
           else if (actionType === "navigate") {
             if (!targetUrl) throw new Error("URL is required to navigate.");
             const finalUrl = targetUrl.match(/^[a-z0-9.+-]+:/i) ? targetUrl : `https://${targetUrl}`;
-            await new Promise<void>((resolve, reject) => {
+            await new Promise<void>((resolve) => {
               chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 const activeTab = tabs[0];
                 if (activeTab?.id) {
+                  targetTabId = activeTab.id;
                   chrome.tabs.update(activeTab.id, { url: finalUrl }, () => {
-                    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-                    else resolve();
+                    const listener = (tId: number, info: any) => {
+                      if (tId === activeTab.id && info.status === "complete") {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        setTimeout(resolve, 400);
+                      }
+                    };
+                    chrome.tabs.onUpdated.addListener(listener);
+                    setTimeout(() => {
+                      chrome.tabs.onUpdated.removeListener(listener);
+                      resolve();
+                    }, 5000);
                   });
                 } else {
-                  reject(new Error("No active tab found."));
+                  resolve();
                 }
               });
             });
@@ -1522,6 +1770,22 @@ ${desc || "No description available."}`;
             throw new Error(`Unsupported browser action: ${actionType}`);
           }
 
+          if (targetTabId) {
+            try {
+              const scrapeRes: any = await new Promise((res) => {
+                chrome.tabs.sendMessage(targetTabId!, { type: "EXTRACT_PAGE_CONTENT" }, (response) => {
+                  if (chrome.runtime.lastError || !response) res(null);
+                  else res(response);
+                });
+              });
+              if (scrapeRes && scrapeRes.success && scrapeRes.text) {
+                message += `\n\n--- Extracted Page Content (${scrapeRes.title || "Page"}) ---\n${scrapeRes.text.slice(0, 10000)}\n--- End Page Content ---`;
+              }
+            } catch (e) {
+              console.warn("Auto-extraction on navigated tab deferred:", e);
+            }
+          }
+
           const successMsg = await LocalDb.addMessage(sessionId, "assistant", `[✓ ${message}]`);
           runningMsgs = [...runningMsgs, successMsg];
           setMessages([...runningMsgs]);
@@ -1536,6 +1800,12 @@ ${desc || "No description available."}`;
 
         await new Promise(r => setTimeout(r, 150));
       }
+    }
+
+    // If only silent page extractions were executed, skip noisy summary message
+    const onlySilentExtractions = actionBlocks.every(b => b.domAction === "extract_page_content");
+    if (onlySilentExtractions) {
+      return;
     }
 
     // Honest execution summary
@@ -1556,12 +1826,15 @@ ${desc || "No description available."}`;
     if (agentLoopCountRef.current < 5) {
       agentLoopCountRef.current += 1;
 
-      const hasTextInHist = runningMsgs.some(m => m.text.includes("Extracted text from page") || m.text.includes("[✓ Extracted text from page"));
+      const hasTextInRecentMsgs = runningMsgs.slice(-3).some(m => 
+        m.text.includes("--- Extracted Page Content") || 
+        m.text.includes("[✓ Extracted text from page")
+      );
       
       let loopPrompt = "";
       if (failCount === 0) {
-        if (hasTextInHist) {
-          loopPrompt = "System: Page content is ALREADY present in the conversation history above. Do NOT output any JSON action blocks (such as extract_page_content). Formulate your final response to the user now using the extracted page text.";
+        if (hasTextInRecentMsgs) {
+          loopPrompt = "System: Fresh page content is provided in the conversation history above. Do NOT output any JSON action blocks (such as extract_page_content). Formulate your final response to the user now using the extracted page text.";
         } else {
           loopPrompt = "System: The page action or tool execution has completed successfully. Please review the results in the conversation history and provide your final response, summary, or next actions to the user.";
         }
@@ -1622,12 +1895,16 @@ You can interact with the active webpage or control the browser.
 ${modeInstructions}
 
 RULES:
-- If the user asks you to perform actions on a page (fill form, click button, etc.) or control tabs/navigation, ONLY output JSON action blocks — do NOT write explanatory text.
+- If the user asks you to perform actions on a page (fill form, click button, etc.) or control tabs/navigation, ONLY output JSON action blocks — do NOT write premature explanatory or speculative text in that turn.
+- Output ONLY the JSON action blocks so the browser can execute them and return real DOM observations.
 - To perform MULTIPLE actions, output MULTIPLE separate JSON blocks in sequence, one per action.
 - ALL JSON blocks in your response will be executed sequentially and automatically.
 - Do NOT re-explain what you are doing — just output the JSON blocks.
 - If it is a normal conversation (not a page action request), answer normally without any JSON.
-- If the user asks to search for something on Google or visit an ecommerce website, PREFER using "browser_action" with "navigate" or "open_tab" and a direct search URL (e.g. "https://www.google.com/search?q=query") instead of manually filling search inputs.
+- If the user explicitly asks to search Google in a tab or visit a website, use "browser_action" with "navigate" or "open_tab" and a direct URL (e.g. "https://www.google.com/search?q=query").
+- For general factual queries (e.g. "who is X", "explain Y"), answer directly without opening unnecessary tabs.
+- CRITICAL ANTI-HALLUCINATION RULE: NEVER fabricate or hallucinate a video summary, transcript, or video analysis if no video is currently playing or if you are on YouTube Home, Search, or Channel pages. If the user asks to summarize a video while not on a watch page (or without an active video transcript/metadata), you MUST refuse to fabricate and instruct the user to open the video first or provide a command to play it.
+- When opening or playing a video via a click action, do NOT chain subsequent actions (such as get_youtube_transcript) in the same turn. Allow the page to navigate first.
 - At the very end of your response, please suggest 3 relevant follow-up questions the user might ask next. Format them as a JSON array inside a tag like this: <suggested_questions>["Question 1", "Question 2", "Question 3"]</suggested_questions>. Ensure the questions are brief (less than 8 words each) and highly contextually relevant.
 
 BROWSER CONTROL CAPABILITIES:
@@ -1686,32 +1963,56 @@ To call a tool, you MUST output a single JSON block inside a markdown code block
 `;
     } else {
       systemInstructions += `
-The user is viewing a LEGACY webpage (no WebMCP tools registered).
-You can fill forms, click buttons, focus elements, and SCRAPE page text content using DOM interaction JSON blocks.
+PAGE COPILOT RULES:
+- When webpage context or text is provided in the prompt, answer the user's questions, summaries, or analyses DIRECTLY and INSTANTLY in clean markdown.
+- NEVER output an "extract_page_content" JSON block when webpage context is already provided in the prompt!
+- ONLY output DOM interaction JSON blocks if the user explicitly asks you to perform an active physical action on the webpage (such as "click this button", "fill out this form", or "scroll down").
 
-If the user asks questions about the current webpage (e.g. "summarize this page", "what is on this page", "list products here", "find text"), you MUST output the "extract_page_content" action first:
+If the user explicitly asks to interact with or fill out the current page:
+To autofill multiple fields in a checkout, contact, or registration form at once (supports inputs, textareas, and select dropdowns):
 \`\`\`json
 {
   "action": "dom_interact",
-  "domAction": "extract_page_content"
+  "domAction": "autofill_form",
+  "fields": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "user@example.com",
+    "phone": "03001234567",
+    "province": "Punjab"
+  }
 }
 \`\`\`
-To fill a form input semantically:
+CRITICAL FORM FILLING RULES:
+1. ONLY populate fields that exist on the CURRENT step/page (consult "Active Form Fields on Current Page" in the extracted content).
+2. For dropdowns (Type: select), check the available Options list in the extracted fields and select the matching option.
+3. NEVER guess or attempt to fill fields for future steps (e.g. do NOT fill Address or City if currently on Step 1: Contact Info).
+4. NEVER put general contact or address info into discount/promo code boxes.
+
+To fetch a YouTube video transcript on-demand if not already provided:
+\`\`\`json
+{
+  "action": "dom_interact",
+  "domAction": "get_youtube_transcript"
+}
+\`\`\`
+
+To fill a single form input or select dropdown semantically:
 \`\`\`json
 {
   "action": "dom_interact",
   "domAction": "fill",
-  "text": "semantic label (e.g. Email Address, Search box)",
-  "tag": "INPUT" | "TEXTAREA",
-  "value": "text to type"
+  "text": "semantic label (e.g. Email Address, Province, Search box)",
+  "tag": "INPUT" | "TEXTAREA" | "SELECT",
+  "value": "text or option to select"
 }
 \`\`\`
-To click a button/link:
+To click a button/link (or product card to open its product page):
 \`\`\`json
 {
   "action": "dom_interact",
   "domAction": "click",
-  "text": "label of element",
+  "text": "label of element or product title",
   "tag": "BUTTON" | "A" | "DIV" | "SPAN"
 }
 \`\`\`
@@ -1719,16 +2020,18 @@ To click a button/link:
     }
 
     const activeMsgs = updatedMessagesList || messages;
-    const hasExtractedTextInHistory = activeMsgs.some(m => 
-      m.text.includes("Extracted text from page") || m.text.includes("[✓ Extracted text from page")
+    const lastMsg = activeMsgs[activeMsgs.length - 1];
+    const isImmediateObservation = lastMsg && (
+      lastMsg.text.includes("--- Extracted Page Content") || 
+      lastMsg.text.includes("[✓ Extracted text from page")
     );
 
-    if (hasExtractedTextInHistory) {
+    if (isImmediateObservation) {
       systemInstructions += `
 CRITICAL RULE ON PAGE CONTENT:
-Extracted page text is ALREADY available in the conversation history above.
-Do NOT output "extract_page_content" or any other JSON action block again!
-Use the extracted text in history to formulate your final text response to the user.
+Fresh page text from the active page is ALREADY provided in the message immediately above.
+Do NOT output "extract_page_content" or any other JSON action block!
+Formulate your final response directly answering the user's request using the extracted content above.
 `;
     }
 
@@ -1847,7 +2150,8 @@ Use the extracted text in history to formulate your final text response to the u
         history: historyForStream,
         model: currentModel,
         keys: currentKeys,
-        image: imageAttachment
+        image: imageAttachment,
+        streamId: aiMsgId
       }).catch(err => {
         setMessages(prev => prev.map(msg => 
           msg.id === aiMsgId 
@@ -1874,30 +2178,60 @@ Use the extracted text in history to formulate your final text response to the u
     setInput("");
     setScreenshotAttachment(null);
 
+    // Anti-Hallucination Guardrail: Strictly refuse to fake a video summary if not currently on a video watch page
+    const isVideoSummaryQuery = /summarize.*video|video.*summary|summary.*video|explain.*video|what is this video about|transcript of this video/i.test(userPrompt);
+    if (isVideoSummaryQuery) {
+      let activeTabUrl = "";
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        activeTabUrl = tabs[0]?.url || "";
+      } catch {}
+
+      const isOnWatchPage = activeTabUrl.includes("youtube.com/watch") || activeTabUrl.includes("youtu.be/");
+      if (!isOnWatchPage || (!youtubeVideoId && !youtubeTranscript && !youtubeDescription)) {
+        const userMsg = await LocalDb.addMessage(activeSession.id, "user", userPrompt);
+        const latestMessages = [...messages, userMsg];
+        setMessages(latestMessages);
+
+        const clarifyText = "⚠️ **No YouTube video is currently open in your active tab.**\n\nI can only summarize or explain videos when you are on a YouTube watch page (`/watch?v=...`). Please open or play a video first, or tell me which video you would like me to find and play for you!";
+        const aiMsg = await LocalDb.addMessage(activeSession.id, "assistant", clarifyText);
+        setMessages([...latestMessages, aiMsg]);
+        return;
+      }
+    }
+
     let searchSources: any[] = [];
     let finalPromptToModel = userPrompt;
 
     let pageContextString = "";
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      if (tab && tab.id && tab.url && !tab.url.startsWith("chrome://") && !tab.url.startsWith("chrome-extension://") && !tab.url.startsWith("edge://") && !tab.url.startsWith("about:")) {
-        const scrapeRes = await new Promise<any>((resolve) => {
-          const timeout = setTimeout(() => resolve(null), 300);
-          chrome.tabs.sendMessage(tab.id!, { type: "EXTRACT_PAGE_CONTENT" }, (res) => {
-            clearTimeout(timeout);
-            resolve(res);
-          });
-        });
-        if (scrapeRes && scrapeRes.success && scrapeRes.text) {
-          pageContextString = `\n\n[Active Tab Webpage Context]\nURL: ${tab.url}\nTitle: ${scrapeRes.title || tab.title}\nContent:\n${scrapeRes.text.slice(0, 3000)}`;
+    if (includePageContext && activeWebpage.isInjectable && !youtubeVideoId) {
+      let pageText = activeWebpage.extractedText;
+      let pageTitle = activeWebpage.title;
+      let pageUrl = activeWebpage.url;
+
+      if (!pageText && activeWebpage.id) {
+        try {
+          const scrapeRes = await Promise.race([
+            sendToActiveTab({ type: "EXTRACT_PAGE_CONTENT" }),
+            new Promise<null>(resolve => setTimeout(() => resolve(null), 1500))
+          ]);
+          if (scrapeRes && scrapeRes.success && scrapeRes.text) {
+            pageText = scrapeRes.text;
+            pageTitle = scrapeRes.title || pageTitle;
+            pageUrl = scrapeRes.url || pageUrl;
+            setActiveWebpage(prev => ({ ...prev, extractedText: pageText, title: pageTitle, url: pageUrl }));
+          }
+        } catch (e) {
+          console.warn("Auto context grounding failed:", e);
         }
       }
-    } catch (e) {
-      console.warn("Auto context grounding failed:", e);
+
+      if (pageText) {
+        pageContextString = `\n\n[Active Webpage Context]\nURL: ${pageUrl}\nTitle: ${pageTitle}\nContent:\n${pageText.slice(0, 10000)}`;
+      }
     }
 
-    if (!youtubeVideoId && pageContextString && !isWebSearchEnabled) {
+    if (!youtubeVideoId && pageContextString) {
       finalPromptToModel = `${pageContextString}\n\nUser Query: ${finalPromptToModel}`;
     }
 
@@ -1972,25 +2306,55 @@ User Query: ${userPrompt}`;
   const handleSuggestedClick = async (question: string) => {
     if (!activeSession) return;
     setInput("");
+
+    // Anti-Hallucination Guardrail: Strictly refuse to fake a video summary if not currently on a video watch page
+    const isVideoSummaryQuery = /summarize.*video|video.*summary|summary.*video|explain.*video|what is this video about|transcript of this video/i.test(question);
+    if (isVideoSummaryQuery) {
+      let activeTabUrl = "";
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        activeTabUrl = tabs[0]?.url || "";
+      } catch {}
+
+      const isOnWatchPage = activeTabUrl.includes("youtube.com/watch") || activeTabUrl.includes("youtu.be/");
+      if (!isOnWatchPage || (!youtubeVideoId && !youtubeTranscript && !youtubeDescription)) {
+        const userMsg = await LocalDb.addMessage(activeSession.id, "user", question);
+        const latestMessages = [...messages, userMsg];
+        setMessages(latestMessages);
+
+        const clarifyText = "⚠️ **No YouTube video is currently open in your active tab.**\n\nI can only summarize or explain videos when you are on a YouTube watch page (`/watch?v=...`). Please open or play a video first, or tell me which video you would like me to find and play for you!";
+        const aiMsg = await LocalDb.addMessage(activeSession.id, "assistant", clarifyText);
+        setMessages([...latestMessages, aiMsg]);
+        return;
+      }
+    }
     
     let pageContextString = "";
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      if (tab && tab.id && tab.url && !tab.url.startsWith("chrome://") && !tab.url.startsWith("chrome-extension://") && !tab.url.startsWith("edge://") && !tab.url.startsWith("about:")) {
-        const scrapeRes = await new Promise<any>((resolve) => {
-          const timeout = setTimeout(() => resolve(null), 300);
-          chrome.tabs.sendMessage(tab.id!, { type: "EXTRACT_PAGE_CONTENT" }, (res) => {
-            clearTimeout(timeout);
-            resolve(res);
-          });
-        });
-        if (scrapeRes && scrapeRes.success && scrapeRes.text) {
-          pageContextString = `\n\n[Active Tab Webpage Context]\nURL: ${tab.url}\nTitle: ${scrapeRes.title || tab.title}\nContent:\n${scrapeRes.text.slice(0, 3000)}`;
+    if (includePageContext && activeWebpage.isInjectable && !youtubeVideoId) {
+      let pageText = activeWebpage.extractedText;
+      let pageTitle = activeWebpage.title;
+      let pageUrl = activeWebpage.url;
+
+      if (!pageText && activeWebpage.id) {
+        try {
+          const scrapeRes = await Promise.race([
+            sendToActiveTab({ type: "EXTRACT_PAGE_CONTENT" }),
+            new Promise<null>(resolve => setTimeout(() => resolve(null), 1500))
+          ]);
+          if (scrapeRes && scrapeRes.success && scrapeRes.text) {
+            pageText = scrapeRes.text;
+            pageTitle = scrapeRes.title || pageTitle;
+            pageUrl = scrapeRes.url || pageUrl;
+            setActiveWebpage(prev => ({ ...prev, extractedText: pageText, title: pageTitle, url: pageUrl }));
+          }
+        } catch (e) {
+          console.warn("Auto context grounding failed on suggested click:", e);
         }
       }
-    } catch (e) {
-      console.warn("Auto context grounding failed on suggested click:", e);
+
+      if (pageText) {
+        pageContextString = `\n\n[Active Webpage Context]\nURL: ${pageUrl}\nTitle: ${pageTitle}\nContent:\n${pageText.slice(0, 10000)}`;
+      }
     }
 
     let finalPromptToModel = question;
@@ -2020,6 +2384,7 @@ User Query: ${userPrompt}`;
   };
 
   const modelLabels: { [key: string]: string } = {
+    "gemini": "Google Gemini",
     "gemini-nano": "Gemini Nano",
     "groq": "Groq Cloud",
     "openrouter": "OpenRouter",
@@ -2330,6 +2695,61 @@ User Query: ${userPrompt}`;
 
             {/* Input Console */}
             <footer className={`p-4 border-t border-ios-border ${glassClass} bg-opacity-65 transition-colors duration-300`}>
+              {/* Sider-style Active Page Context Pill */}
+              {activeWebpage.isInjectable && (
+                <div className={`flex items-center justify-between gap-2 px-2.5 py-1 mb-2 rounded-xl border text-[11px] transition-colors ${
+                  theme === 'light' 
+                    ? 'bg-black/[0.03] border-zinc-200 text-zinc-700' 
+                    : 'bg-white/[0.04] border-white/5 text-zinc-300'
+                }`}>
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    {activeWebpage.favIconUrl ? (
+                      <img 
+                        src={activeWebpage.favIconUrl} 
+                        alt="" 
+                        className="w-3.5 h-3.5 rounded-sm shrink-0 object-contain" 
+                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} 
+                      />
+                    ) : (
+                      <Globe size={12} className={theme === 'light' ? 'text-indigo-600 shrink-0' : 'text-indigo-400 shrink-0'} />
+                    )}
+                    <span className="truncate font-medium text-[11px]" title={activeWebpage.title}>
+                      {activeWebpage.title || "Current Webpage"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => handleSummarizePage()}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 active:scale-95 ${
+                        theme === 'light'
+                          ? 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100'
+                          : 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300 hover:bg-indigo-500/25'
+                      }`}
+                      title="Generate instant AI summary of this webpage"
+                    >
+                      <Sparkles size={10} />
+                      <span>Summarize</span>
+                    </button>
+                    <button
+                      onClick={() => setIncludePageContext(!includePageContext)}
+                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 ${
+                        includePageContext
+                          ? theme === 'light'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
+                          : theme === 'light'
+                            ? 'bg-zinc-100 border-zinc-200 text-zinc-500 hover:text-zinc-700'
+                            : 'bg-white/5 border-white/5 text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title={includePageContext ? "Page context included in chat. Click to disable." : "Page context excluded. Click to enable."}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${includePageContext ? 'bg-emerald-500' : 'bg-zinc-500'}`} />
+                      <span>{includePageContext ? "Context ON" : "Context OFF"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className={`${inputBedClass} p-2.5 flex flex-col gap-2 relative transition-colors duration-300`}>
                 {screenshotAttachment && (
                   <div className="relative inline-block w-16 h-16 rounded-lg overflow-hidden border border-white/10 group mb-1 shrink-0">
@@ -2868,6 +3288,67 @@ User Query: ${userPrompt}`;
               
               <div className={settingsGroupClass}>
                 
+                {/* Google Gemini Row */}
+                <div className={settingsRowClass}>
+                  <div className="flex items-center justify-between w-full h-9">
+                    <div className="flex items-center gap-2.5">
+                      <div className="ios-settings-icon-wrapper bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500">
+                        <Sparkles size={14} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[14px] font-normal leading-tight">Google Gemini</span>
+                        <a 
+                          href="https://aistudio.google.com/app/apikey" 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="text-[9px] text-indigo-400 hover:underline"
+                        >
+                          Get free key →
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="password"
+                        value={apiKeys.gemini}
+                        onChange={(e) => {
+                          const updated = { ...apiKeys, gemini: e.target.value };
+                          setApiKeys(updated);
+                          saveSettings(updated, theme, bgPreset, enableCloudSync, isRagEnabled, activeModel, fetchedModels);
+                        }}
+                        placeholder="AIzaSy... / AQ..."
+                        className={`text-right bg-transparent border-0 outline-none text-xs w-28 ${theme === 'light' ? 'text-zinc-800 placeholder-zinc-300' : 'text-zinc-100 placeholder-zinc-600'}`}
+                      />
+                      <button
+                        onClick={() => fetchModels("gemini", apiKeys.gemini)}
+                        className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all ${theme === 'light' ? 'bg-indigo-50 text-indigo-600' : 'bg-white/5 text-indigo-400 hover:bg-white/10'}`}
+                      >
+                        {loadingModels === "gemini" ? "..." : "Load"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {fetchedModels.gemini.length > 0 && (
+                  <div className={settingsRowClass}>
+                    <div className="flex items-center justify-between w-full h-9 pl-9">
+                      <span className="text-xs text-zinc-400">Select Model</span>
+                      <select
+                        value={apiKeys.geminiModel}
+                        onChange={(e) => {
+                          const updated = { ...apiKeys, geminiModel: e.target.value };
+                          setApiKeys(updated);
+                          saveSettings(updated, theme, bgPreset, enableCloudSync, isRagEnabled, activeModel, fetchedModels);
+                        }}
+                        className={`bg-transparent border-0 outline-none text-xs text-right max-w-[150px] ${theme === 'light' ? 'text-zinc-800' : 'text-zinc-100'}`}
+                      >
+                        {fetchedModels.gemini.map(m => (
+                          <option key={m} value={m} className={theme === 'light' ? 'text-zinc-800' : 'text-zinc-100 bg-[#0f0b21]'}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
                 {/* OpenAI Row */}
                 <div className={settingsRowClass}>
                   <div className="flex items-center justify-between w-full h-9">

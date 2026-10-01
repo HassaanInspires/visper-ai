@@ -51,83 +51,59 @@ export function detectEComContext(): EComProductInfo {
 
 /**
   * High-level E-Commerce Add to Cart Executor
-  * Strategy A: Direct Store Native API (Shopify /cart/add.js, WooCommerce AJAX)
-  * Strategy B: Custom Store DOM Submission Fallback
+  * Dispatches action to the active webpage's content script to execute in page origin context
   */
-export async function executeEComAddToCart(variantSize?: string, quantity: number = 1): Promise<EComAddToCartResult> {
-  const context = detectEComContext();
-
-  // 1. Shopify Direct Native API Strategy
-  if (context.storeType === "shopify") {
-    try {
-      console.log("Visper ECom: Attempting Shopify native API cart addition...");
-      // Find selected variant ID from form input or select
-      const variantInput = document.querySelector("form[action*='/cart/add'] input[name='id'], select[name='id']") as HTMLInputElement | HTMLSelectElement;
-      let variantId = variantInput?.value;
-
-      // If a size was requested, try selecting the matching size radio/option first
-      if (variantSize) {
-        selectVariantOption(variantSize);
-        await new Promise(r => setTimeout(r, 100));
-        variantId = (document.querySelector("form[action*='/cart/add'] input[name='id'], select[name='id']") as HTMLInputElement)?.value || variantId;
-      }
-
-      if (variantId) {
-        const response = await fetch("/cart/add.js", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: [{ id: parseInt(variantId, 10), quantity }] })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          // Fetch updated cart status
-          const cartRes = await fetch("/cart.js");
-          const cartData = cartRes.ok ? await cartRes.json() : null;
-
-          return {
-            success: true,
-            message: `Successfully added ${data.items?.[0]?.product_title || "item"} ${variantSize ? `(Size: ${variantSize})` : ""} to your cart via Shopify Store API!`,
-            cartCount: cartData?.item_count,
-            cartTotal: cartData?.total_price ? `PKR ${(cartData.total_price / 100).toLocaleString()}` : undefined
-          };
-        }
-      }
-    } catch (e) {
-      console.warn("Shopify API cart addition failed, falling back to DOM form submit:", e);
-    }
-  }
-
-  // 2. Fallback Strategy: Native Form Submit & DOM Interaction (Custom & WooCommerce Stores)
+export async function executeEComAddToCart(
+  variantSize?: string, 
+  quantity: number = 1,
+  sendToTabFn?: (msg: any) => Promise<any>
+): Promise<EComAddToCartResult> {
   try {
-    if (variantSize) {
-      selectVariantOption(variantSize);
-      await new Promise(r => setTimeout(r, 150));
+    let response: any;
+    if (sendToTabFn) {
+      response = await sendToTabFn({
+        type: "ECOM_ADD_TO_CART",
+        text: variantSize ? `Size ${variantSize}` : "Add to Cart",
+        quantity
+      });
+    } else {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0]?.id;
+      if (!tabId) throw new Error("No active webpage tab found.");
+      response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, {
+          type: "ECOM_ADD_TO_CART",
+          text: variantSize ? `Size ${variantSize}` : "Add to Cart",
+          quantity
+        }, (res) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(res);
+        });
+      });
     }
 
-    const cartForm = document.querySelector("form[action*='/cart'], form.cart, form.product-form") as HTMLFormElement;
-    const submitBtn = document.querySelector(
-      "button[name='add'], button[type='submit'], input[type='submit'], .add-to-cart, .product-form__submit"
-    ) as HTMLElement;
-
-    if (cartForm && cartForm.requestSubmit) {
-      cartForm.requestSubmit();
-      return { success: true, message: `Dispatched form submission for ${variantSize ? `Size ${variantSize}` : "product"}. Check your cart!` };
-    } else if (submitBtn) {
-      submitBtn.click();
-      return { success: true, message: `Clicked Add to Cart button for ${variantSize ? `Size ${variantSize}` : "product"}. Check your cart!` };
+    if (response && response.success) {
+      return {
+        success: true,
+        message: response.message || "Added item to cart successfully."
+      };
     }
+    return {
+      success: false,
+      message: response?.error || "Could not add item to cart on this page."
+    };
   } catch (err: any) {
-    return { success: false, message: `Could not submit cart form: ${err.message}` };
+    return {
+      success: false,
+      message: `Failed executing cart action: ${err.message}`
+    };
   }
-
-  return { success: false, message: "Could not find Add to Cart button or form on this page." };
 }
 
 /**
   * Helper to click or select variant size pills / options
   */
-function selectVariantOption(targetSize: string): boolean {
+export function selectVariantOption(targetSize: string): boolean {
   const normalized = targetSize.trim().toLowerCase();
   
   // Try matching inputs, radios, labels, data-values, or select options

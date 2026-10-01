@@ -54,36 +54,370 @@ window.addEventListener("webmcp-register", (event: any) => {
   }
 });
 
+// Word-boundary token matcher to prevent false-positive substring collisions (e.g. "opacity" matching "city")
+export function hasWordMatch(haystack: string, needle: string): boolean {
+  if (!haystack || !needle) return false;
+  const h = haystack.toLowerCase().replace(/[-_./:]/g, " ").replace(/\s+/g, " ");
+  const n = needle.toLowerCase().replace(/[-_./:]/g, " ").trim();
+  if (h === n) return true;
+  const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, "i");
+  return regex.test(h);
+}
+
+// Universal resolver that locates the real interactable input/textarea/select from labels, wrappers, or sibling containers
+// Handles Next.js, React 18/19, Tailwind, Shopify, and custom SPA form structures
+export function resolveToInteractiveInput(el: HTMLElement): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+    return el;
+  }
+
+  // 1. If it's a <label>
+  if (el.tagName === "LABEL") {
+    const htmlFor = (el as HTMLLabelElement).htmlFor;
+    if (htmlFor) {
+      const linked = document.getElementById(htmlFor);
+      if (linked && (linked instanceof HTMLInputElement || linked instanceof HTMLTextAreaElement || linked instanceof HTMLSelectElement)) {
+        return linked;
+      }
+    }
+    // Child input
+    const child = el.querySelector("input:not([type='hidden']), textarea, select");
+    if (child) return child as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+    // Sibling input in same parent container (classic Next.js: <div class="space-y-1"><label>Name</label><input /></div>)
+    const parent = el.parentElement;
+    if (parent) {
+      const siblingInput = parent.querySelector("input:not([type='hidden']), textarea, select");
+      if (siblingInput) return siblingInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    }
+
+    // Following sibling elements
+    let next = el.nextElementSibling;
+    while (next) {
+      if (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement || next instanceof HTMLSelectElement) {
+        return next;
+      }
+      const innerInput = next.querySelector("input:not([type='hidden']), textarea, select");
+      if (innerInput) return innerInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+      next = next.nextElementSibling;
+    }
+  }
+
+  // 2. If it's a container element (DIV, SPAN, P, SECTION, FIELDSET, LI, etc.)
+  const childInput = el.querySelector("input:not([type='hidden']), textarea, select");
+  if (childInput) return childInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+  const container = el.closest("div, fieldset, li, tr, form");
+  if (container) {
+    const containerInput = container.querySelector("input:not([type='hidden']), textarea, select");
+    if (containerInput) return containerInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  }
+
+  if (el.parentElement) {
+    const parentInput = el.parentElement.querySelector("input:not([type='hidden']), textarea, select");
+    if (parentInput) return parentInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  }
+
+  let next = el.nextElementSibling;
+  while (next) {
+    if (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement || next instanceof HTMLSelectElement) {
+      return next;
+    }
+    const innerInput = next.querySelector("input:not([type='hidden']), textarea, select");
+    if (innerInput) return innerInput as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    next = next.nextElementSibling;
+  }
+
+  return null;
+}
+
+// Helper to safely insert or replace text in any input, textarea, or contenteditable editor
+// Guaranteed 0% chance of "Illegal invocation" due to strict V8 brand checks
+export function safeInsertTextIntoElement(el: HTMLElement, text: string, mode: "replace" | "insert" = "insert") {
+  // If element is contentEditable, handle directly
+  if (el.isContentEditable) {
+    el.focus();
+    if (mode === "replace") {
+      const sel = window.getSelection();
+      if (sel) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+    const success = document.execCommand("insertText", false, text);
+    if (!success) {
+      if (mode === "replace") {
+        el.innerText = text;
+      } else {
+        el.innerText += text;
+      }
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    return;
+  }
+
+  const inputEl = resolveToInteractiveInput(el);
+  if (!inputEl) {
+    throw new Error(`Target element <${el.tagName}> has no interactive input field associated with it.`);
+  }
+
+  // Handle HTMLSelectElement explicitly (dropdown menus)
+  if (inputEl instanceof HTMLSelectElement || inputEl.tagName === "SELECT") {
+    const selectEl = inputEl as HTMLSelectElement;
+    selectEl.focus();
+    const target = text.trim().toLowerCase();
+    let matchedOption: HTMLOptionElement | null = null;
+    const options = Array.from(selectEl.options);
+
+    // 1. Exact text or value match
+    for (const opt of options) {
+      const val = (opt.value || "").trim().toLowerCase();
+      const txt = (opt.text || "").trim().toLowerCase();
+      if (val === target || txt === target) {
+        matchedOption = opt;
+        break;
+      }
+    }
+
+    // 2. Word-boundary match on option text
+    if (!matchedOption) {
+      for (const opt of options) {
+        const val = (opt.value || "").trim().toLowerCase();
+        const txt = (opt.text || "").trim().toLowerCase();
+        if (hasWordMatch(txt, target) || (val.length >= 3 && hasWordMatch(val, target))) {
+          matchedOption = opt;
+          break;
+        }
+      }
+    }
+
+    // 3. Substring match on option text or substantial value (>= 4 chars)
+    if (!matchedOption) {
+      for (const opt of options) {
+        const val = (opt.value || "").trim().toLowerCase();
+        const txt = (opt.text || "").trim().toLowerCase();
+        if (txt && (txt.includes(target) || (target.length >= 5 && target.includes(txt)))) {
+          matchedOption = opt;
+          break;
+        }
+        if (val.length >= 4 && (val.includes(target) || target.includes(val))) {
+          matchedOption = opt;
+          break;
+        }
+      }
+    }
+
+    const proto = window.HTMLSelectElement?.prototype;
+    const setNativeValue = proto ? Object.getOwnPropertyDescriptor(proto, "value")?.set : null;
+    const finalVal = matchedOption ? matchedOption.value : text;
+
+    if (matchedOption) {
+      matchedOption.selected = true;
+    }
+
+    if (setNativeValue) {
+      setNativeValue.call(selectEl, finalVal);
+    } else {
+      selectEl.value = finalVal;
+    }
+
+    selectEl.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    selectEl.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    selectEl.dispatchEvent(new Event("blur", { bubbles: true, composed: true }));
+    return;
+  }
+
+  inputEl.focus();
+
+  if (mode === "replace" && typeof (inputEl as any).select === "function") {
+    try { (inputEl as any).select(); } catch {}
+  }
+
+  let success = false;
+  try {
+    success = document.execCommand("insertText", false, text);
+  } catch {}
+
+  if (!success) {
+    const isTextArea = inputEl instanceof HTMLTextAreaElement || inputEl.tagName === "TEXTAREA";
+    const proto = isTextArea 
+      ? window.HTMLTextAreaElement?.prototype 
+      : window.HTMLInputElement?.prototype;
+    const setNativeValue = proto ? Object.getOwnPropertyDescriptor(proto, "value")?.set : null;
+
+    if (mode === "replace") {
+      if (setNativeValue) {
+        setNativeValue.call(inputEl, text);
+      } else {
+        (inputEl as HTMLInputElement).value = text;
+      }
+    } else {
+      const val = (inputEl as HTMLInputElement).value || "";
+      const start = (inputEl as HTMLInputElement).selectionStart ?? val.length;
+      const end = (inputEl as HTMLInputElement).selectionEnd ?? val.length;
+      const newVal = val.substring(0, start) + text + val.substring(end);
+      if (setNativeValue) {
+        setNativeValue.call(inputEl, newVal);
+      } else {
+        (inputEl as HTMLInputElement).value = newVal;
+      }
+    }
+  }
+
+  inputEl.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  inputEl.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+  inputEl.dispatchEvent(new Event("blur", { bubbles: true, composed: true }));
+}
+
+export interface FormFieldInfo {
+  index: number;
+  label: string;
+  name: string;
+  id: string;
+  type: string;
+  placeholder: string;
+  autocomplete: string;
+  isPromo: boolean;
+  currentValue: string;
+  options?: string[];
+}
+
+// Scans active visible form fields on current page/step to prevent agent hallucination
+export function extractVisibleFormFields(): FormFieldInfo[] {
+  try {
+    const inputs = Array.from(document.querySelectorAll<HTMLElement>("input, textarea, select"));
+    const fields: FormFieldInfo[] = [];
+    let count = 0;
+
+    for (const el of inputs) {
+      if (!isElementVisible(el)) continue;
+      const type = (el.getAttribute("type") || el.tagName.toLowerCase()).toLowerCase();
+      if (type === "hidden" || type === "submit" || type === "button" || type === "image" || type === "reset") {
+        continue;
+      }
+
+      count++;
+      const name = el.getAttribute("name") || "";
+      const id = el.id || "";
+      const placeholder = el.getAttribute("placeholder") || "";
+      const autocomplete = el.getAttribute("autocomplete") || "";
+      const aria = el.getAttribute("aria-label") || "";
+
+      // Resolve human label
+      let label = aria || placeholder;
+      if (!label && id) {
+        const lbl = document.querySelector<HTMLLabelElement>(`label[for="${id}"]`);
+        if (lbl) label = lbl.textContent?.trim() || "";
+      }
+      if (!label) {
+        const parentLbl = el.closest("label");
+        if (parentLbl) label = parentLbl.textContent?.trim() || "";
+      }
+      if (!label) {
+        const container = el.closest("div, fieldset, li, tr, form");
+        if (container) {
+          const cLbl = container.querySelector("label, .label, [class*='label']");
+          if (cLbl) label = cLbl.textContent?.trim() || "";
+        }
+      }
+      if (!label && el.previousElementSibling) {
+        const prevText = el.previousElementSibling.textContent?.trim();
+        if (prevText && prevText.length < 50) label = prevText;
+      }
+      if (!label) {
+        label = name;
+      }
+
+      label = label.replace(/\s+/g, " ").trim();
+
+      const isPromo = (
+        hasWordMatch(name, "promo") || hasWordMatch(name, "coupon") || hasWordMatch(name, "discount") || hasWordMatch(name, "voucher") ||
+        hasWordMatch(id, "promo") || hasWordMatch(id, "coupon") || hasWordMatch(id, "discount") || hasWordMatch(id, "voucher") ||
+        hasWordMatch(label, "promo") || hasWordMatch(label, "coupon") || hasWordMatch(label, "discount") || hasWordMatch(label, "voucher") ||
+        hasWordMatch(placeholder, "promo") || hasWordMatch(placeholder, "coupon") || hasWordMatch(placeholder, "discount") || hasWordMatch(placeholder, "voucher")
+      );
+
+      const currentValue = (el as HTMLInputElement).value || "";
+
+      let optionsList: string[] | undefined = undefined;
+      if (el instanceof HTMLSelectElement || el.tagName === "SELECT" || type === "select") {
+        const optElements = Array.from((el as HTMLSelectElement).options || []);
+        optionsList = optElements
+          .map(opt => opt.text?.trim() || opt.value?.trim())
+          .filter(Boolean)
+          .slice(0, 30);
+      }
+
+      fields.push({
+        index: count,
+        label,
+        name,
+        id,
+        type,
+        placeholder,
+        autocomplete,
+        isPromo,
+        currentValue,
+        options: optionsList
+      });
+    }
+
+    return fields;
+  } catch (e) {
+    console.warn("Visper: Failed to extract visible form fields:", e);
+    return [];
+  }
+}
+
 // Helper to extract clean text content of the entire webpage body
 // Removes navigation panels, menus, scripts, styles, footers, etc. to yield pure content
 function extractCleanPageText(): string {
   try {
-    const bodyClone = document.body.cloneNode(true) as HTMLElement;
+    const mainContentEl = document.querySelector("main, article, [role='main'], #content, .main-content");
+    const rootEl = (mainContentEl || document.body).cloneNode(true) as HTMLElement;
     
     // Remove heavy non-content nodes
-    const elementsToRemove = bodyClone.querySelectorAll(
-      "script, style, iframe, noscript, svg, header, footer, nav, aside, .header, .footer, .nav, .menu, .sidebar"
+    const elementsToRemove = rootEl.querySelectorAll(
+      "script, style, iframe, noscript, svg, header, footer, nav, aside, .header, .footer, .nav, .menu, .sidebar, .ad, [aria-hidden='true']"
     );
     elementsToRemove.forEach(el => el.remove());
     
-    // Traverse remaining text nodes
-    const walker = document.createTreeWalker(bodyClone, NodeFilter.SHOW_TEXT);
+    // Traverse remaining text nodes with Set for O(1) deduplication
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
     const textNodes: string[] = [];
+    const seen = new Set<string>();
     let node;
     while ((node = walker.nextNode())) {
-      const text = node.textContent?.trim() || "";
-      // Keep meaningful lines of text (length > 3) and avoid duplicates
-      if (text.length > 3 && !textNodes.includes(text)) {
+      const text = node.textContent?.trim().replace(/\s+/g, " ") || "";
+      // Keep meaningful lines of text (length > 3) and avoid duplicates using Set
+      if (text.length > 3 && !seen.has(text)) {
+        seen.add(text);
         textNodes.push(text);
+        if (textNodes.length >= 1000) break;
       }
     }
     
-    // Limit to 1000 lines to prevent context size overflow (well under token limits)
-    return textNodes.slice(0, 1000).join("\n");
+    let resultText = textNodes.join("\n");
+    const formFields = extractVisibleFormFields();
+    if (formFields.length > 0) {
+      const fieldLines = formFields.map(f => {
+        const promoTag = f.isPromo ? " [DISCOUNT/PROMO CODE]" : "";
+        const optionsTag = (f.options && f.options.length > 0) 
+          ? ` | Options: [${f.options.slice(0, 10).map(o => `"${o}"`).join(", ")}${f.options.length > 10 ? "..." : ""}]` 
+          : "";
+        return `- [Field #${f.index}] Label: "${f.label}" | Type: ${f.type} | Name: "${f.name}"${promoTag}${optionsTag}${f.currentValue ? ` | Current: "${f.currentValue}"` : ""}`;
+      });
+      resultText += `\n\n--- Active Form Fields on Current Page ---\n${fieldLines.join("\n")}\n--- End Form Fields ---`;
+    }
+
+    return resultText;
   } catch (e) {
     console.warn("Failed to extract clean page text:", e);
-    // Fallback: simple textContent scrape
-    return document.body.innerText || "";
+    return (document.body?.innerText || "").slice(0, 50000);
   }
 }
 
@@ -101,8 +435,22 @@ function isElementVisible(el: HTMLElement): boolean {
   );
 }
 
+const FIELD_SYNONYMS: Record<string, string[]> = {
+  "first name": ["first name", "firstname", "first_name", "fname", "given name", "given-name", "forename"],
+  "last name": ["last name", "lastname", "last_name", "lname", "family name", "family-name", "surname"],
+  "email": ["email", "e-mail", "email address", "email_address", "user_email"],
+  "phone": ["phone", "phonenumber", "phone_number", "mobile", "mobile number", "tel", "telephone", "cell", "contact number"],
+  "whatsapp": ["whatsapp", "wa_number", "wa", "whatsapp number"],
+  "address": ["address", "street", "street address", "street_address", "address1", "address_1", "line1"],
+  "city": ["city", "town", "locality"],
+  "state": ["state", "province", "region", "territory", "subdivision"],
+  "zip": ["zip", "zipcode", "zip_code", "postal", "postalcode", "postal_code", "pincode", "postcode"],
+  "country": ["country", "nation", "country_code"],
+  "promo": ["promo", "promo code", "promocode", "coupon", "coupon code", "discount", "discount code", "voucher", "voucher code", "gift card"]
+};
+
 // 2. Semantic Element Matcher: Resolves elements on legacy pages without formal WebMCP integration
-function findElementSemantically(tag?: string, text?: string, selector?: string): HTMLElement | null {
+export function findElementSemantically(tag?: string, text?: string, selector?: string): HTMLElement | null {
   const targetText = text ? text.trim().toLowerCase().replace(/\s+/g, " ") : "";
   const targetTag = tag ? tag.trim().toUpperCase() : "";
 
@@ -116,14 +464,26 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
     }
   }
 
+  // Strategy A2: YouTube Direct Video Matcher (for "play first video", "first video", "1st video")
+  const isFirstVideoQuery = targetText === "first video" || targetText === "play first video" || targetText === "1st video" || targetText === "open first video" || targetText === "top video" || targetText.includes("first video") || targetText.includes("1st video");
+  if (isFirstVideoQuery && (typeof window !== "undefined" && (window.location.hostname.includes("youtube.com") || window.location.href.includes("youtube.com")))) {
+    const firstVideoEl = document.querySelector<HTMLElement>("ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title, ytd-grid-video-renderer a#video-title, a#video-title");
+    if (firstVideoEl && isElementVisible(firstVideoEl)) return firstVideoEl;
+  }
+
   // Strategy B: Match tags and compute semantic relevance score
-  // Include all interactive tags even if targetTag is specified, to catch custom divs, links, labels, and form buttons
-  const allTags = ["BUTTON", "INPUT", "A", "LABEL", "TEXTAREA", "DIV", "SPAN", "SELECT"];
+  const allTags = ["BUTTON", "INPUT", "A", "LABEL", "TEXTAREA", "SELECT", "DIV", "SPAN"];
   const tagsToSearch = targetTag ? [targetTag, ...allTags.filter(t => t !== targetTag)] : allTags;
   const candidates: { el: HTMLElement; score: number }[] = [];
 
   const isAddToCartQuery = targetText.includes("add to cart") || targetText.includes("add to bag") || targetText.includes("buy now") || targetText === "cart";
   const isSizeQuery = targetText === "s" || targetText === "m" || targetText === "l" || targetText === "xl" || targetText === "xxl" || targetText === "small" || targetText === "medium" || targetText === "large" || targetText === "extra large";
+
+  const isPromoQuery = (
+    hasWordMatch(targetText, "promo") || hasWordMatch(targetText, "coupon") || 
+    hasWordMatch(targetText, "discount") || hasWordMatch(targetText, "voucher") ||
+    hasWordMatch(targetText, "gift")
+  );
 
   for (const t of tagsToSearch) {
     const isPrimaryTag = targetTag ? t === targetTag : true;
@@ -144,6 +504,38 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
       const elId = el.id.toLowerCase();
       const elClass = el.className.toLowerCase();
       const elDataAction = el.getAttribute("data-action")?.trim().toLowerCase() || "";
+      const elAutocomplete = el.getAttribute("autocomplete")?.trim().toLowerCase() || "";
+
+      // Home & Logo Protection: Strictly penalize home/logo anchors if user query is not explicitly asking for home/logo
+      const isHomeOrLogoElement = (
+        elId === "logo" || elId === "logo-icon" ||
+        elClass.includes("logo") || elAria.includes("youtube home") || elAria.includes("homepage") ||
+        (t === "A" && ((el as HTMLAnchorElement).pathname === "/" || (el as HTMLAnchorElement).getAttribute("href") === "/" || (el as HTMLAnchorElement).getAttribute("href") === "https://www.youtube.com/"))
+      );
+      const isExplicitHomeQuery = hasWordMatch(targetText, "home") || hasWordMatch(targetText, "logo") || hasWordMatch(targetText, "main");
+      if (isHomeOrLogoElement && !isExplicitHomeQuery) {
+        score -= 600;
+      }
+
+      // YouTube Video Title Booster
+      if (typeof window !== "undefined" && window.location.hostname.includes("youtube.com")) {
+        if (elId === "video-title" || el.closest("ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer")) {
+          score += 60;
+        }
+      }
+
+      // Promo/Discount Blacklist Protection: Strictly penalize promo boxes if user query is not asking for promo
+      const isPromoElement = (
+        hasWordMatch(elName, "promo") || hasWordMatch(elName, "coupon") || hasWordMatch(elName, "discount") || hasWordMatch(elName, "voucher") ||
+        hasWordMatch(elId, "promo") || hasWordMatch(elId, "coupon") || hasWordMatch(elId, "discount") || hasWordMatch(elId, "voucher") ||
+        hasWordMatch(elPlaceholder, "promo") || hasWordMatch(elPlaceholder, "coupon") || hasWordMatch(elPlaceholder, "discount") || hasWordMatch(elPlaceholder, "voucher") ||
+        hasWordMatch(elAria, "promo") || hasWordMatch(elAria, "coupon") || hasWordMatch(elAria, "discount") || hasWordMatch(elAria, "voucher") ||
+        hasWordMatch(elClass, "promo") || hasWordMatch(elClass, "coupon") || hasWordMatch(elClass, "discount") || hasWordMatch(elClass, "voucher")
+      );
+
+      if (isPromoElement && !isPromoQuery) {
+        score -= 500;
+      }
 
       // E-commerce Special Heuristics (Shopify, WooCommerce, Daraz, Magento)
       if (isAddToCartQuery) {
@@ -168,56 +560,129 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
       }
 
       if (targetText) {
-        // 1. Direct Content Match
-        if (rawText === targetText) score += 120;
-        else if (rawText.includes(targetText)) score += 60;
+        // 1. Direct Content Match & Substring Inclusions
+        if (rawText === targetText) {
+          score += 150;
+        } else if (rawText && targetText && (rawText.length >= 6 && targetText.includes(rawText))) {
+          // Reverse substring match: element text is contained within query (e.g. element has "Men's Awrah Swim Shorts", query has "Men's Awrah Swim Shorts (Dual-Layer, Quick Dry) by Avicyn")
+          score += 140;
+        } else if (rawText && targetText && (targetText.length >= 6 && rawText.includes(targetText))) {
+          // Forward substring match
+          score += 130;
+        } else if (hasWordMatch(rawText, targetText) || hasWordMatch(targetText, rawText)) {
+          score += 80;
+        }
+
+        // 1b. Token Overlap / Jaccard similarity for long titles or queries with extra descriptors
+        const targetTokens = targetText.split(/[\s,./()_—–-]+/).filter(tok => tok.length > 2);
+        const rawTokens = rawText.split(/[\s,./()_—–-]+/).filter(tok => tok.length > 2);
+        if (targetTokens.length > 0 && rawTokens.length > 0) {
+          let matchCount = 0;
+          for (const tok of rawTokens) {
+            if (targetTokens.includes(tok)) matchCount++;
+          }
+          const tokenCoverage = matchCount / rawTokens.length;
+          const targetCoverage = matchCount / targetTokens.length;
+          if (matchCount >= 2 && (tokenCoverage >= 0.4 || targetCoverage >= 0.4)) {
+            score += Math.round(matchCount * 25 * Math.max(tokenCoverage, targetCoverage));
+          }
+        }
+
+        // Special check for <select> options
+        if (t === "SELECT" || el.tagName === "SELECT") {
+          const selectEl = el as HTMLSelectElement;
+          for (const opt of Array.from(selectEl.options)) {
+            const optVal = (opt.value || "").trim().toLowerCase();
+            const optTxt = (opt.text || "").trim().toLowerCase();
+            if (optVal === targetText || optTxt === targetText) {
+              score += 170;
+              break;
+            } else if (optTxt && targetText && (optTxt.includes(targetText) || targetText.includes(optTxt))) {
+              score += 130;
+              break;
+            }
+          }
+        }
 
         // 2. Aria-Label match
         if (elAria === targetText) score += 130;
-        else if (elAria.includes(targetText)) score += 65;
+        else if (hasWordMatch(elAria, targetText)) score += 65;
 
         // 3. Input value & placeholder match
         if (elValue === targetText) score += 110;
-        else if (elValue.includes(targetText)) score += 55;
+        else if (hasWordMatch(elValue, targetText)) score += 55;
         if (elPlaceholder === targetText) score += 110;
-        else if (elPlaceholder.includes(targetText)) score += 55;
+        else if (hasWordMatch(elPlaceholder, targetText)) score += 55;
 
         // 4. Name attribute match
-        if (elName === targetText) score += 90;
-        else if (elName.includes(targetText)) score += 45;
+        if (elName === targetText) score += 100;
+        else if (hasWordMatch(elName, targetText)) score += 50;
 
-        // 5. Element details (Id/Class)
-        if (elId && elId.includes(targetText)) score += 30;
-        if (elClass && elClass.includes(targetText)) score += 20;
+        // 5. Element details (Id/Class) — using word-boundary match to prevent "opacity" matching "city"
+        if (elId && (elId === targetText || hasWordMatch(elId, targetText))) score += 40;
+        if (elClass && hasWordMatch(elClass, targetText)) score += 20;
 
-        // 5b. Anchor href attribute match (A tags) and Title attribute match
-        if (t === "A") {
-          const elHref = el.getAttribute("href")?.trim().toLowerCase() || "";
-          if (elHref && elHref.includes(targetText)) score += 85;
+        // 6. Autocomplete attribute match (W3C standard)
+        if (elAutocomplete && (elAutocomplete === targetText || hasWordMatch(elAutocomplete, targetText))) {
+          score += 170;
         }
-        const elTitle = el.getAttribute("title")?.trim().toLowerCase() || "";
-        if (elTitle && elTitle.includes(targetText)) score += 50;
 
-        // 6. Label-Association Matches (Critical for Form Fields & Radio Pills)
+        // 7. Semantic Synonyms Matching (maps "First name" to firstName, fname, given-name, etc.)
+        for (const [canonical, syns] of Object.entries(FIELD_SYNONYMS)) {
+          const isTargetThisField = targetText === canonical || syns.some(s => hasWordMatch(targetText, s));
+          if (isTargetThisField) {
+            const isElementMatch = (
+              syns.some(s => hasWordMatch(elName, s)) ||
+              syns.some(s => hasWordMatch(elId, s)) ||
+              syns.some(s => hasWordMatch(elPlaceholder, s)) ||
+              syns.some(s => hasWordMatch(elAria, s)) ||
+              syns.some(s => hasWordMatch(elAutocomplete, s))
+            );
+            if (isElementMatch) {
+              score += 180;
+              break;
+            }
+          }
+        }
+
+        // 8. Label-Association Matches (Critical for Form Fields & Radio Pills)
         if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || t === "LABEL") {
           if (el.id) {
             const labelEl = document.querySelector(`label[for="${el.id}"]`);
             if (labelEl) {
               const labelText = labelEl.textContent?.trim().toLowerCase() || "";
               if (labelText === targetText) score += 160;
-              else if (labelText.includes(targetText)) score += 80;
+              else if (hasWordMatch(labelText, targetText)) score += 80;
             }
           }
 
           const parentLabel = el.closest("label");
           if (parentLabel) {
             const labelText = parentLabel.textContent?.trim().toLowerCase() || "";
-            if (labelText === targetText) score += 140;
-            else if (labelText.includes(targetText)) score += 70;
+            if (labelText === targetText) score += 150;
+            else if (hasWordMatch(labelText, targetText)) score += 75;
+          }
+
+          // Container-level label matching for Next.js / Tailwind sibling inputs
+          const container = el.closest("div, fieldset, li, tr, form");
+          if (container) {
+            const containerLabel = container.querySelector("label, .label, [class*='label']");
+            if (containerLabel && containerLabel !== el) {
+              const lblText = containerLabel.textContent?.trim().toLowerCase() || "";
+              if (lblText === targetText) score += 150;
+              else if (hasWordMatch(lblText, targetText)) score += 75;
+            }
+          }
+
+          // Preceding sibling label
+          let prev = el.previousElementSibling;
+          while (prev) {
+            const prevText = prev.textContent?.trim().toLowerCase() || "";
+            if (prevText === targetText) { score += 150; break; }
+            else if (hasWordMatch(prevText, targetText)) { score += 75; break; }
+            prev = prev.previousElementSibling;
           }
         }
-      } else {
-        score += 1;
       }
 
       if (score > 0) {
@@ -227,7 +692,97 @@ function findElementSemantically(tag?: string, text?: string, selector?: string)
   }
 
   candidates.sort((a, b) => b.score - a.score);
-  return candidates.length > 0 ? candidates[0].el : null;
+
+  // Strict confidence threshold: If target text was specified, candidate MUST score at least 70
+  // to avoid false positives (e.g. clicking YouTube logo/home when video title isn't found).
+  const MIN_MATCH_SCORE = targetText ? 70 : 1;
+
+  for (const candidate of candidates) {
+    if (candidate.score < MIN_MATCH_SCORE) continue;
+    if (targetTag === "INPUT" || targetTag === "TEXTAREA" || targetTag === "SELECT") {
+      const resolved = resolveToInteractiveInput(candidate.el);
+      if (resolved && isElementVisible(resolved)) {
+        return resolved;
+      }
+    } else if (targetTag === "A") {
+      if (candidate.el.tagName === "A") return candidate.el;
+      const childLink = candidate.el.querySelector<HTMLAnchorElement>("a[href]");
+      if (childLink && isElementVisible(childLink)) return childLink;
+      const parentLink = candidate.el.closest<HTMLAnchorElement>("a[href]");
+      if (parentLink && isElementVisible(parentLink)) return parentLink;
+      return candidate.el;
+    } else {
+      // If tag is generic/clickable container (DIV, ARTICLE, LI, SPAN), resolve to child anchor or button
+      if (candidate.el.tagName !== "BUTTON" && candidate.el.tagName !== "A" && candidate.el.tagName !== "INPUT" && candidate.el.tagName !== "SELECT") {
+        const childAction = candidate.el.querySelector<HTMLElement>("a[href], button");
+        if (childAction && isElementVisible(childAction)) {
+          return childAction;
+        }
+        const parentAction = candidate.el.closest<HTMLElement>("a[href], button");
+        if (parentAction && isElementVisible(parentAction)) {
+          return parentAction;
+        }
+      }
+      return candidate.el;
+    }
+  }
+
+  return candidates.length > 0 && candidates[0].score >= MIN_MATCH_SCORE ? candidates[0].el : null;
+}
+
+// 3. Asynchronous Polling Matcher for dynamic SPAs (YouTube, React, Next.js)
+export async function waitForElementSemantically(
+  tag?: string,
+  text?: string,
+  selector?: string,
+  timeoutMs: number = 3000
+): Promise<HTMLElement | null> {
+  const start = Date.now();
+  
+  // Fast path: Immediate lookup
+  const immediate = findElementSemantically(tag, text, selector);
+  if (immediate) return immediate;
+
+  // Slow path: Polling up to timeoutMs
+  return new Promise<HTMLElement | null>((resolve) => {
+    let resolved = false;
+
+    const cleanup = () => {
+      resolved = true;
+      clearInterval(interval);
+      if (observer) observer.disconnect();
+    };
+
+    const check = () => {
+      if (resolved) return;
+      const el = findElementSemantically(tag, text, selector);
+      if (el) {
+        cleanup();
+        resolve(el);
+      } else if (Date.now() - start >= timeoutMs) {
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    const interval = setInterval(check, 150);
+
+    let observer: MutationObserver | null = null;
+    if (typeof MutationObserver !== "undefined" && typeof document !== "undefined" && document.body) {
+      observer = new MutationObserver(() => {
+        check();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // Safety timeout
+    setTimeout(() => {
+      if (!resolved) {
+        cleanup();
+        resolve(findElementSemantically(tag, text, selector));
+      }
+    }, timeoutMs + 50);
+  });
 }
 
 async function getYoutubePlayerResponse(): Promise<any> {
@@ -290,7 +845,7 @@ async function getYoutubePlayerResponse(): Promise<any> {
   return null;
 }
 
-async function scrapeYoutubeDomTranscript(): Promise<{ text: string; start: number; duration: number }[] | null> {
+export async function scrapeYoutubeDomTranscript(): Promise<{ text: string; start: number; duration: number }[] | null> {
   try {
     let segments = Array.from(document.querySelectorAll("ytd-transcript-segment-renderer, .ytd-transcript-segment-renderer"));
     
@@ -312,8 +867,12 @@ async function scrapeYoutubeDomTranscript(): Promise<{ text: string; start: numb
 
       if (transcriptBtn) {
         transcriptBtn.click();
-        await new Promise(r => setTimeout(r, 600));
-        segments = Array.from(document.querySelectorAll("ytd-transcript-segment-renderer, .ytd-transcript-segment-renderer"));
+        // Poll up to 2,000ms for YouTube custom web components to render segments
+        for (let attempt = 0; attempt < 10; attempt++) {
+          await new Promise(r => setTimeout(r, 200));
+          segments = Array.from(document.querySelectorAll("ytd-transcript-segment-renderer, .ytd-transcript-segment-renderer"));
+          if (segments.length > 0) break;
+        }
       }
     }
 
@@ -494,16 +1053,9 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
   // A3. Insert text at the currently active element (for Write mode integration)
   if (message.type === "INSERT_TEXT") {
     try {
-      const activeEl = document.activeElement as HTMLInputElement | HTMLTextAreaElement;
+      const activeEl = document.activeElement as HTMLElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable)) {
-        if (activeEl.isContentEditable) {
-          activeEl.innerText = message.text;
-        } else {
-          activeEl.value = message.text;
-        }
-        // Dispatch input/change events so React/Vue sites detect the change
-        activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-        activeEl.dispatchEvent(new Event('change', { bubbles: true }));
+        safeInsertTextIntoElement(activeEl, message.text || "", message.mode || "insert");
         sendResponse({ success: true, message: "Inserted text into focused element successfully." });
       } else {
         sendResponse({ success: false, error: "Please click inside a webpage input field or textbox first." });
@@ -556,52 +1108,288 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
       return false;
     }
 
-    const element = findElementSemantically(message.tag, message.text, message.selector);
-    if (!element) {
-      sendResponse({ success: false, error: "Target semantic element was not found in page DOM." });
+    if (message.action === "get_youtube_transcript" || message.action === "youtube_transcript") {
+      (async () => {
+        try {
+          const isWatchPage = (typeof window !== "undefined") && (
+            (window.location.host.includes("youtube.com") && window.location.pathname.includes("/watch")) ||
+            window.location.host.includes("youtu.be")
+          );
+          let videoId = "";
+          try {
+            videoId = new URL(window.location.href).searchParams.get("v") || "";
+          } catch {}
+
+          if (!isWatchPage || !videoId) {
+            sendResponse({
+              success: false,
+              error: `Not on a YouTube video watch page (current page: ${window.location.pathname}). Please open a video first.`
+            });
+            return;
+          }
+
+          let transcript: { text: string; start: number; duration: number }[] | null = null;
+          let videoTitle = document.title;
+
+          const titleEl = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, #title h1, h1.title");
+          if (titleEl?.textContent?.trim()) videoTitle = titleEl.textContent.trim();
+
+          const playerResponse = await getYoutubePlayerResponse();
+          if (playerResponse) {
+            if (playerResponse.videoDetails?.title) videoTitle = playerResponse.videoDetails.title;
+            if (playerResponse.videoDetails?.videoId) videoId = playerResponse.videoDetails.videoId;
+            const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+            if (captionTracks.length > 0) {
+              const candidateTracks = [
+                ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur" || t.languageCode === "hi"),
+                ...captionTracks
+              ];
+              for (const track of candidateTracks) {
+                if (!track?.baseUrl) continue;
+                try {
+                  const res = await fetch(track.baseUrl);
+                  if (!res.ok) continue;
+                  const rawText = await res.text();
+                  if (rawText.includes("<text")) {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(rawText, "text/xml");
+                    const textNodes = xmlDoc.getElementsByTagName("text");
+                    const parsedSegs: { text: string; start: number; duration: number }[] = [];
+                    for (let i = 0; i < textNodes.length; i++) {
+                      const node = textNodes[i];
+                      const text = (node.textContent || "")
+                        .replace(/&amp;/g, "&")
+                        .replace(/&lt;/g, "<")
+                        .replace(/&gt;/g, ">")
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#39;/g, "'")
+                        .trim();
+                      const start = parseFloat(node.getAttribute("start") || "0");
+                      const duration = parseFloat(node.getAttribute("dur") || "0");
+                      if (text) parsedSegs.push({ text, start, duration });
+                    }
+                    if (parsedSegs.length > 0) {
+                      transcript = parsedSegs;
+                      break;
+                    }
+                  }
+                } catch {}
+              }
+            }
+          }
+
+          if (!transcript || transcript.length === 0) {
+            transcript = await scrapeYoutubeDomTranscript();
+          }
+
+          if (transcript && transcript.length > 0) {
+            const formatted = transcript.slice(0, 300).map(t => {
+              const m = Math.floor(t.start / 60);
+              const s = Math.floor(t.start % 60);
+              const stamp = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+              return `[${stamp}] ${t.text}`;
+            }).join("\n");
+
+            sendResponse({
+              success: true,
+              message: `Retrieved ${transcript.length} transcript segments for "${videoTitle}".`,
+              title: videoTitle,
+              videoId,
+              text: `--- YouTube Video Transcript (${videoTitle}) ---\n${formatted}\n--- End Transcript ---`,
+              transcript
+            });
+          } else {
+            sendResponse({
+              success: false,
+              error: `No captions or transcript available for this video ("${videoTitle}").`
+            });
+          }
+        } catch (err: any) {
+          sendResponse({ success: false, error: `Transcript extraction failed: ${err.message}` });
+        }
+      })();
+      return true;
+    }
+
+    if (message.action === "autofill_form") {
+      try {
+        const fields = message.fields || {};
+        const results: { field: string; status: "filled" | "skipped" | "failed"; message: string }[] = [];
+        let filledCount = 0;
+
+        for (const [rawKey, rawVal] of Object.entries(fields)) {
+          if (!rawVal || typeof rawVal !== "string") continue;
+          const targetLabel = rawKey
+            .replace(/([A-Z])/g, " $1")
+            .replace(/[-_]/g, " ")
+            .trim();
+          
+          let matchedEl = findElementSemantically("INPUT", targetLabel);
+          if (!matchedEl) {
+            matchedEl = findElementSemantically("SELECT", targetLabel);
+          }
+          if (!matchedEl) {
+            matchedEl = findElementSemantically(undefined, targetLabel);
+          }
+
+          if (matchedEl) {
+            try {
+              safeInsertTextIntoElement(matchedEl, rawVal, "replace");
+              filledCount++;
+              results.push({ field: rawKey, status: "filled", message: `Filled "${rawKey}" with "${rawVal}"` });
+            } catch (err: any) {
+              results.push({ field: rawKey, status: "failed", message: `Failed "${rawKey}": ${err.message}` });
+            }
+          } else {
+            results.push({ field: rawKey, status: "skipped", message: `Field "${rawKey}" not found on current form step.` });
+          }
+        }
+
+        sendResponse({
+          success: true,
+          message: `Autofilled ${filledCount} of ${Object.keys(fields).length} field(s) successfully.`,
+          details: results
+        });
+      } catch (e: any) {
+        sendResponse({ success: false, error: `Autofill execution failed: ${e.message}` });
+      }
       return false;
     }
 
-    try {
-      const desc = {
-        tagName: element.tagName,
-        id: element.id,
-        className: element.className,
-        text: element.textContent?.trim().slice(0, 40)
-      };
-
-      if (message.action === "click") {
-        element.click();
-        sendResponse({ success: true, message: "Clicked element successfully.", element: desc });
-      } else if (message.action === "fill") {
-        const inputEl = element as HTMLInputElement | HTMLTextAreaElement;
-        inputEl.value = message.value || "";
-        inputEl.dispatchEvent(new Event("input", { bubbles: true }));
-        inputEl.dispatchEvent(new Event("change", { bubbles: true }));
-        
-        // Dispatch Enter key and form submit for search inputs
-        if (inputEl.form) {
-          try {
-            if (inputEl.form.requestSubmit) inputEl.form.requestSubmit();
-            else inputEl.form.submit();
-          } catch (e) {
-            // Fallback to keydown
-            inputEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
-          }
-        } else {
-          inputEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+    (async () => {
+      try {
+        const element = await waitForElementSemantically(message.tag, message.text, message.selector, 3000);
+        if (!element) {
+          sendResponse({ success: false, error: "Target semantic element was not found in page DOM." });
+          return;
         }
-        sendResponse({ success: true, message: "Filled input value and triggered submission.", element: desc });
-      } else if (message.action === "focus") {
-        element.focus();
-        sendResponse({ success: true, message: "Focused element successfully.", element: desc });
-      } else {
-        sendResponse({ success: false, error: `Unsupported interaction action: ${message.action}` });
+
+        const desc = {
+          tagName: element.tagName,
+          id: element.id,
+          className: element.className,
+          text: element.textContent?.trim().slice(0, 40)
+        };
+
+        if (message.action === "click") {
+          // Identify if element is or is contained inside a navigation link
+          const anchor = (element.tagName === "A" 
+            ? element 
+            : (element.closest("a[href]") || element.querySelector("a[href]"))) as HTMLAnchorElement | null;
+          const targetHref = anchor?.href || "";
+          const isNavigation = !!targetHref && !targetHref.startsWith("javascript:") && !targetHref.startsWith("#");
+
+          // Dispatch full mouse event sequence for web components / Polymer / React compatibility
+          element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+          element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+          element.click();
+
+          // Fallback navigation enforcement for complex SPAs if location doesn't change
+          if (isNavigation) {
+            setTimeout(() => {
+              if (typeof window !== "undefined" && window.location.href !== targetHref && !window.location.href.includes(targetHref)) {
+                try {
+                  window.location.href = targetHref;
+                } catch {}
+              }
+            }, 300);
+          }
+
+          sendResponse({
+            success: true,
+            message: isNavigation ? `Clicked link, navigating to "${targetHref}"` : "Clicked element successfully.",
+            element: desc,
+            navigating: isNavigation,
+            targetUrl: targetHref || undefined
+          });
+        } else if (message.action === "fill") {
+          safeInsertTextIntoElement(element, message.value || "", "replace");
+          
+          // Only trigger Enter/submit if this is explicitly a search input
+          const isSearchInput = element.getAttribute("type") === "search" || 
+                                element.getAttribute("role") === "searchbox" ||
+                                element.className?.toLowerCase?.().includes("search") ||
+                                (element as HTMLInputElement).name?.toLowerCase?.().includes("search");
+          if (isSearchInput) {
+            element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+          }
+          sendResponse({ success: true, message: `Filled "${message.value || ""}" successfully.`, element: desc });
+        } else if (message.action === "focus") {
+          element.focus();
+          sendResponse({ success: true, message: "Focused element successfully.", element: desc });
+        } else {
+          sendResponse({ success: false, error: `Unsupported interaction action: ${message.action}` });
+        }
+      } catch (err: any) {
+        sendResponse({ success: false, error: `Interaction failed: ${err.message}` });
       }
-    } catch (err: any) {
-      sendResponse({ success: false, error: `Interaction failed: ${err.message}` });
-    }
-    return false;
+    })();
+    return true;
+  }
+
+  // E-commerce direct add-to-cart runner (executed in page context)
+  if (message.type === "ECOM_ADD_TO_CART") {
+    (async () => {
+      try {
+        const { variantId, quantity = 1, selector, text } = message;
+
+        // 1. If variantId is provided, try Shopify Cart AJAX API directly within the page origin
+        if (variantId) {
+          try {
+            const res = await fetch("/cart/add.js", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: Number(variantId), quantity: Number(quantity) })
+            });
+            if (res.ok) {
+              const cartData = await res.json();
+              sendResponse({
+                success: true,
+                message: `Added item (Variant ID: ${variantId}) to cart via Shopify API.`,
+                cart: cartData
+              });
+              return;
+            }
+          } catch (e: any) {
+            console.warn("Shopify /cart/add.js direct call failed, falling back to DOM click:", e.message);
+          }
+        }
+
+        // 2. Fallback: Find Add to Cart button semantically on the page and click it
+        const targetBtn = findElementSemantically("BUTTON", text || "Add to Cart", selector);
+        if (targetBtn) {
+          targetBtn.scrollIntoView({ behavior: "smooth", block: "center" });
+          targetBtn.click();
+          sendResponse({
+            success: true,
+            message: `Clicked "${targetBtn.textContent?.trim() || "Add to Cart"}" button on page.`,
+            element: { tagName: targetBtn.tagName, text: targetBtn.textContent?.trim() }
+          });
+          return;
+        }
+
+        // 3. Fallback: Form submission if form[action*="/cart"] exists
+        const cartForm = document.querySelector('form[action*="/cart/add"], form[action*="/cart"]') as HTMLFormElement;
+        if (cartForm) {
+          const submitBtn = cartForm.querySelector('button[type="submit"], input[type="submit"], button') as HTMLElement;
+          if (submitBtn) {
+            submitBtn.click();
+          } else {
+            cartForm.submit();
+          }
+          sendResponse({
+            success: true,
+            message: "Submitted e-commerce product cart form."
+          });
+          return;
+        }
+
+        sendResponse({ success: false, error: "Could not find Add to Cart button or cart form on this page." });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true; // Keep message channel open for async response
   }
 
   if (message.type === "START_OCR_CAPTURE") {
@@ -622,88 +1410,91 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
           return;
         }
 
+        let videoTitle = document.title;
+        let videoId = "";
+        let description = "";
+
+        try {
+          const urlObj = new URL(window.location.href);
+          videoId = urlObj.searchParams.get("v") || "";
+        } catch {}
+
+        const titleEl = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, #title h1, h1.title");
+        if (titleEl?.textContent?.trim()) {
+          videoTitle = titleEl.textContent.trim();
+        }
+
         const playerResponse = await getYoutubePlayerResponse();
-        if (!playerResponse) {
-          sendResponse({ success: false, error: "Could not retrieve YouTube player response. Make sure the page is fully loaded." });
-          return;
+        if (playerResponse) {
+          if (playerResponse.videoDetails?.title) videoTitle = playerResponse.videoDetails.title;
+          if (playerResponse.videoDetails?.videoId) videoId = playerResponse.videoDetails.videoId;
+          if (playerResponse.videoDetails?.shortDescription) description = playerResponse.videoDetails.shortDescription;
         }
 
-        const videoTitle = playerResponse.videoDetails?.title || document.title;
-        const videoId = playerResponse.videoDetails?.videoId || "";
-        const description = playerResponse.videoDetails?.shortDescription || "";
-
-        const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (!captionTracks || captionTracks.length === 0) {
-          sendResponse({
-            success: true,
-            transcript: null,
-            title: videoTitle,
-            videoId,
-            description
-          });
-          return;
-        }
-
+        const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
         let transcript: { text: string; start: number; duration: number }[] = [];
 
-        // Candidate track search in order: English -> Urdu -> Any language (Arabic, Spanish, Hindi, Turkish, French, German, etc.)
-        const candidateTracks = [
-          ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur"),
-          ...captionTracks
-        ];
+        if (captionTracks.length > 0) {
+          // Candidate track search in order: English -> Urdu -> Hindi -> Any language
+          const candidateTracks = [
+            ...captionTracks.filter((t: any) => t.languageCode === "en" || t.languageCode === "ur" || t.languageCode === "hi"),
+            ...captionTracks
+          ];
 
-        for (const track of candidateTracks) {
-          if (!track || !track.baseUrl) continue;
-          try {
-            const res = await fetch(track.baseUrl);
-            if (!res.ok) continue;
-            const rawText = await res.text();
-            
-            // Try parsing XML format (<text start="0">...</text>)
-            if (rawText.includes("<text")) {
-              const parser = new DOMParser();
-              const xmlDoc = parser.parseFromString(rawText, "text/xml");
-              const textNodes = xmlDoc.getElementsByTagName("text");
-              for (let i = 0; i < textNodes.length; i++) {
-                const node = textNodes[i];
-                const text = node.textContent || "";
-                const start = parseFloat(node.getAttribute("start") || "0");
-                const duration = parseFloat(node.getAttribute("dur") || "0");
-                const cleanText = text
-                  .replace(/&amp;/g, "&")
-                  .replace(/&lt;/g, "<")
-                  .replace(/&gt;/g, ">")
-                  .replace(/&quot;/g, '"')
-                  .replace(/&#39;/g, "'")
-                  .replace(/&apos;/g, "'")
-                  .trim();
-                if (cleanText) {
-                  transcript.push({ text: cleanText, start, duration });
+          for (const track of candidateTracks) {
+            if (!track || !track.baseUrl) continue;
+            try {
+              const res = await fetch(track.baseUrl);
+              if (!res.ok) continue;
+              const rawText = await res.text();
+              
+              // Try parsing XML format (<text start="0">...</text>)
+              if (rawText.includes("<text")) {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(rawText, "text/xml");
+                const textNodes = xmlDoc.getElementsByTagName("text");
+                for (let i = 0; i < textNodes.length; i++) {
+                  const node = textNodes[i];
+                  const text = node.textContent || "";
+                  const start = parseFloat(node.getAttribute("start") || "0");
+                  const duration = parseFloat(node.getAttribute("dur") || "0");
+                  const cleanText = text
+                    .replace(/&amp;/g, "&")
+                    .replace(/&lt;/g, "<")
+                    .replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&apos;/g, "'")
+                    .trim();
+                  if (cleanText) {
+                    transcript.push({ text: cleanText, start, duration });
+                  }
                 }
+                if (transcript.length > 0) break;
               }
-              if (transcript.length > 0) break;
+            } catch (e) {
+              console.warn("Failed to fetch caption track:", e);
             }
-          } catch (e) {
-            console.warn("Failed to fetch caption track:", e);
           }
-        }
 
-        // Fallback 1: Try background service worker caption fetcher (bypasses CORS completely)
-        if (transcript.length === 0 && captionTracks && captionTracks.length > 0) {
-          try {
-            const bgRes: any = await new Promise(res => {
-              chrome.runtime.sendMessage({ type: "FETCH_YOUTUBE_CAPTION_BACKGROUND", captionTracks }, res);
-            });
-            if (bgRes && bgRes.success && bgRes.transcript) {
-              transcript = bgRes.transcript;
+          // Fallback 1: Try background service worker caption fetcher (bypasses CORS completely)
+          if (transcript.length === 0) {
+            try {
+              const bgRes: any = await new Promise(res => {
+                chrome.runtime.sendMessage({ type: "FETCH_YOUTUBE_CAPTION_BACKGROUND", captionTracks }, res);
+              });
+              if (bgRes && bgRes.success && bgRes.transcript) {
+                transcript = bgRes.transcript;
+              }
+            } catch (e) {
+              console.warn("Background caption fetch fallback failed:", e);
             }
-          } catch (e) {
-            console.warn("Background caption fetch fallback failed:", e);
           }
         }
 
         // Fallback 2: Native YouTube UI DOM Clicker & Scraper (clicks "Show transcript" button)
         if (transcript.length === 0) {
+          console.log("No caption tracks succeeded. Running native YouTube DOM transcript scraper...");
           const domTranscript = await scrapeYoutubeDomTranscript();
           if (domTranscript && domTranscript.length > 0) {
             transcript = domTranscript;
@@ -791,8 +1582,12 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
       const firstRect = rects[0];
       
       // Calculate coordinates centered above the selection bounds
-      const left = window.scrollX + (firstRect.left + firstRect.width / 2);
-      const top = window.scrollY + firstRect.top - 44; // 44px above selection
+      // Clamp horizontally to stay within viewport and vertically so it never hides off top
+      const rawLeft = window.scrollX + (firstRect.left + firstRect.width / 2);
+      const left = Math.max(80, Math.min(window.scrollX + window.innerWidth - 80, rawLeft));
+      const top = (firstRect.top - 44 < 10) 
+        ? (window.scrollY + firstRect.bottom + 8) 
+        : (window.scrollY + firstRect.top - 44);
 
       removeMenu();
 
@@ -894,6 +1689,15 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
     }, 10);
   });
 
+  // Dismiss floating tooltip on window scroll or resize
+  window.addEventListener("scroll", () => {
+    if (tooltipHost) removeMenu();
+  }, { passive: true });
+
+  window.addEventListener("resize", () => {
+    if (tooltipHost) removeMenu();
+  }, { passive: true });
+
   // Clear menu on clicking anywhere else
   document.addEventListener("mousedown", (e) => {
     if (tooltipHost && !tooltipHost.contains(e.target as Node)) {
@@ -930,38 +1734,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
   // Helper to insert text into the active input element
   const insertTextIntoInput = (text: string, mode: "replace" | "insert") => {
     if (!activeInputElement) return;
-    const el = activeInputElement as HTMLInputElement | HTMLTextAreaElement;
-    
-    if (el.isContentEditable) {
-      if (mode === "replace") {
-        el.innerText = text;
-      } else {
-        // Insert at current selection inside contenteditable
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          range.deleteContents();
-          range.insertNode(document.createTextNode(text));
-        } else {
-          el.innerText += text;
-        }
-      }
-    } else {
-      const val = el.value || "";
-      if (mode === "replace") {
-        el.value = text;
-      } else {
-        const start = el.selectionStart || 0;
-        const end = el.selectionEnd || 0;
-        el.value = val.substring(0, start) + text + val.substring(end);
-        el.selectionStart = el.selectionEnd = start + text.length;
-      }
-    }
-
-    // Trigger standard DOM input and change events so page frameworks detect changes
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.focus();
+    safeInsertTextIntoElement(activeInputElement, text, mode);
   };
 
   // Monitor input focus

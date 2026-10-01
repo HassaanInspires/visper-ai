@@ -1,9 +1,63 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface MarkdownRendererProps {
   text: string;
   theme?: "light" | "dark";
 }
+
+function parseTimestampToSeconds(ts: string): number {
+  const parts = ts.replace(/[\[\]]/g, "").split(":").map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  return 0;
+}
+
+function seekYoutubeVideo(seconds: number) {
+  if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, { type: "YOUTUBE_SEEK", time: seconds }).catch(() => {});
+      }
+    });
+  }
+}
+
+const CodeBlock: React.FC<{ code: string; language: string; isDark: boolean }> = ({ code, language, isDark }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const codeBg = isDark ? "bg-[#0c0818]/70 border-white/10 text-zinc-200" : "bg-zinc-100 border-zinc-200 text-zinc-800";
+  const headerBg = isDark ? "bg-white/5 border-white/5 text-zinc-400" : "bg-zinc-200/50 border-zinc-200 text-zinc-600";
+
+  return (
+    <div className={`my-3 rounded-lg overflow-hidden border ${codeBg} text-xs font-mono shadow-sm`}>
+      <div className={`flex items-center justify-between px-3 py-1.5 border-b text-[11px] ${headerBg}`}>
+        <span className="uppercase font-semibold tracking-wider text-[10px]">{language || "code"}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors hover:bg-white/10 active:scale-95"
+          title="Copy code to clipboard"
+        >
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="p-3 overflow-x-auto leading-relaxed whitespace-pre select-text">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme = "dark" }) => {
   if (!text) return null;
@@ -22,31 +76,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme 
   
   const borderClass = isDark ? "border-white/10" : "border-zinc-200";
   const blockquoteBorder = isDark ? "border-zinc-500" : "border-zinc-300";
-  
-  const codeBg = isDark ? "bg-[#0c0818]/65 border-white/5 text-zinc-300" : "bg-zinc-100 border-zinc-200 text-zinc-800";
 
-  // Split content by code blocks to separate code from text blocks
-  const parts = text.split(/(```[\s\S]*?```)/g);
+  // Split content by code blocks, correctly handling unclosed code blocks during streaming
+  const parts = text.split(/(```[\s\S]*?(?:```|$))/g);
 
   return (
     <div className={`markdown-body space-y-2.5 w-full overflow-hidden break-words ${textClass}`}>
       {parts.map((part, index) => {
         // Render Code Block
         if (part.startsWith("```")) {
-          const match = part.match(/```(\w*)\n([\s\S]*?)```/);
-          const lang = match ? match[1] : "";
-          const content = match ? match[2] : part.slice(3, -3);
+          const hasClosing = part.endsWith("```") && part.length > 3;
+          const raw = hasClosing ? part.slice(3, -3) : part.slice(3);
+          const firstLineBreak = raw.indexOf("\n");
+          let lang = "";
+          let content = raw;
+          if (firstLineBreak !== -1) {
+            lang = raw.slice(0, firstLineBreak).trim();
+            content = raw.slice(firstLineBreak + 1);
+          }
 
-          return (
-            <pre key={index} className={`my-3 p-3 rounded-lg overflow-x-auto font-mono text-xs leading-relaxed leading-5 border ${codeBg}`}>
-              {lang && (
-                <div className={`text-[10px] uppercase font-bold tracking-wider mb-2 select-none ${mutedTextClass}`}>
-                  {lang}
-                </div>
-              )}
-              <code className="select-text whitespace-pre block">{content.trim()}</code>
-            </pre>
-          );
+          return <CodeBlock key={index} code={content.trimEnd()} language={lang} isDark={isDark} />;
         }
 
         // Render regular text segment (parse paragraphs, bullet lists, and GFM tables)
@@ -235,15 +284,16 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text, theme 
   );
 };
 
-// Helper: Parser for bold, italic, links, and inline code formatting
+// Helper: Parser for bold, italic, links, inline code formatting, and clickable YouTube timestamps
 function parseInlineFormatting(text: string, isDark: boolean): React.ReactNode[] {
-  // Regex pattern for bold (**), italic (*), links ([text](url)), and inline code (`)
-  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))/g;
+  // Regex pattern for bold (**), italic (*), links ([text](url)), inline code (`), and timestamps ([01:23] or 01:23)
+  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\)|\b\d{1,2}:\d{2}(?::\d{2})?\b|\[\d{1,2}:\d{2}(?::\d{2})?\])/g;
   const tokens = text.split(regex);
   const inlineCodeBg = isDark ? "bg-white/10 text-indigo-300 border-white/5" : "bg-black/5 text-indigo-600 border-black/5";
   const linkClass = isDark ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700";
   const boldClass = isDark ? "font-semibold text-white" : "font-semibold text-zinc-950";
   const italicClass = isDark ? "italic text-zinc-300" : "italic text-zinc-600";
+  const timestampBg = isDark ? "bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border-purple-500/20" : "bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-300";
 
   return tokens.map((token, index) => {
     // Bold: **text**
@@ -281,6 +331,24 @@ function parseInlineFormatting(text: string, isDark: boolean): React.ReactNode[]
           </a>
         );
       }
+    }
+    // Clickable YouTube timestamp: [01:23] or 01:23
+    const isTimestamp = /^\[?\d{1,2}:\d{2}(?::\d{2})?\]?$/.test(token);
+    if (isTimestamp) {
+      const cleanTs = token.replace(/[\[\]]/g, "");
+      const seconds = parseTimestampToSeconds(cleanTs);
+      return (
+        <button
+          key={index}
+          type="button"
+          onClick={() => seekYoutubeVideo(seconds)}
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded text-[11px] font-mono font-medium border transition-colors cursor-pointer active:scale-95 ${timestampBg}`}
+          title={`Seek video to ${cleanTs}`}
+        >
+          <span>▶</span>
+          <span>{cleanTs}</span>
+        </button>
+      );
     }
 
     return token;

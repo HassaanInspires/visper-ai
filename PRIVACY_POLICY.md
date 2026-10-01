@@ -1,7 +1,7 @@
 # Privacy Policy for Visper AI
 
-**Effective Date:** July 22, 2026  
-**Extension Name:** Visper AI (v2.5.0)  
+**Effective Date:** October 1, 2026  
+**Extension Name:** Visper AI (v2.6.0)  
 **Publisher:** Visper AI Development Team  
 
 ---

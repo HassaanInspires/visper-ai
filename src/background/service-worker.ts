@@ -17,12 +17,15 @@ let activeAbortController: AbortController | null = null;
 let currentStreamTarget = "sidebar";
 
 // Helper for making streaming fetch requests to LLM APIs (OpenAI format)
+// Helper for making streaming fetch requests to LLM APIs (OpenAI format)
 async function runStreamFetch(
   endpoint: string,
   apiKey: string,
   modelName: string,
   prompt: string,
   history: any[],
+  streamId: string = "default",
+  target: string = "sidebar",
   image?: string
 ) {
   const formattedHistory = history.map(h => ({
@@ -89,7 +92,7 @@ async function runStreamFetch(
       if (cleanLine.startsWith("data: ")) {
         const dataStr = cleanLine.slice(6);
         if (dataStr === "[DONE]") {
-          chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target: currentStreamTarget }).catch(() => {});
+          chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
           streamFinished = true;
           return;
         }
@@ -97,7 +100,7 @@ async function runStreamFetch(
           const parsed = JSON.parse(dataStr);
           const text = parsed.choices?.[0]?.delta?.content || "";
           if (text) {
-            chrome.runtime.sendMessage({ type: "STREAM_CHUNK", text, target: currentStreamTarget }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "STREAM_CHUNK", text, target, streamId }).catch(() => {});
           }
         } catch (err) {
           // Parse error
@@ -107,7 +110,7 @@ async function runStreamFetch(
   }
 
   if (!streamFinished) {
-    chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target: currentStreamTarget }).catch(() => {});
+    chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
   }
 }
 
@@ -117,6 +120,8 @@ async function runClaudeStreamFetch(
   modelName: string,
   prompt: string,
   history: any[],
+  streamId: string = "default",
+  target: string = "sidebar",
   image?: string
 ) {
   const formattedHistory = history.map(h => ({
@@ -194,9 +199,9 @@ async function runClaudeStreamFetch(
         try {
           const parsed = JSON.parse(dataStr);
           if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-            chrome.runtime.sendMessage({ type: "STREAM_CHUNK", text: parsed.delta.text, target: currentStreamTarget }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "STREAM_CHUNK", text: parsed.delta.text, target, streamId }).catch(() => {});
           } else if (parsed.type === "message_stop") {
-            chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target: currentStreamTarget }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
             streamFinished = true;
             return;
           }
@@ -208,12 +213,176 @@ async function runClaudeStreamFetch(
   }
 
   if (!streamFinished) {
-    chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target: currentStreamTarget }).catch(() => {});
+    chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
+  }
+}
+
+// Helper for making streaming fetch requests to Google Gemini Generative Language API
+async function runGeminiStreamFetch(
+  apiKey: string,
+  modelName: string,
+  prompt: string,
+  history: any[],
+  streamId: string = "default",
+  target: string = "sidebar",
+  image?: string
+) {
+  const formattedHistory = history.map(h => ({
+    role: h.sender === "user" ? "user" : "model",
+    parts: [{ text: h.text }]
+  }));
+
+  const userParts: any[] = [];
+  if (image) {
+    const base64Data = image.split(",")[1] || image;
+    userParts.push({
+      inlineData: {
+        mimeType: "image/png",
+        data: base64Data
+      }
+    });
+  }
+  userParts.push({ text: prompt });
+
+  const contents = [...formattedHistory, { role: "user", parts: userParts }];
+
+  // Cancel any active previous request and set up a new controller
+  activeAbortController?.abort();
+  activeAbortController = new AbortController();
+
+  const candidateModels = [...new Set([modelName, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.5-flash"])].filter(Boolean);
+  let response: Response | null = null;
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < candidateModels.length; i++) {
+    const curModel = candidateModels[i];
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${curModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ contents }),
+        signal: activeAbortController.signal
+      });
+
+      if (res.ok) {
+        response = res;
+        break;
+      }
+
+      const errorText = await res.text();
+      let errMsg = errorText;
+      try {
+        const parsedErr = JSON.parse(errorText);
+        errMsg = parsedErr.error?.message || errorText;
+      } catch {}
+      const err = new Error(errMsg || `Google Gemini HTTP Error ${res.status}`);
+      (err as any).status = res.status;
+      lastError = err;
+
+      // If transient or deprecated (503 high demand, 404 deprecated, 429 quota), try next fallback model
+      if ((res.status === 503 || res.status === 404 || res.status === 429) && i < candidateModels.length - 1) {
+        console.warn(`Gemini model ${curModel} returned ${res.status}. Cascading to fallback ${candidateModels[i + 1]}...`);
+        continue;
+      }
+      throw err;
+    } catch (err: any) {
+      if (err.name === "AbortError") throw err;
+      lastError = err;
+      if (i < candidateModels.length - 1) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!response || !response.body) {
+    throw lastError || new Error("Failed to connect to Google Gemini stream.");
+  }
+
+  const reader = response.body.getReader();
+  if (!reader) throw new Error("Gemini response body is not readable");
+
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let streamFinished = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine) continue;
+
+      if (cleanLine.startsWith("data: ")) {
+        const dataStr = cleanLine.slice(6);
+        try {
+          const parsed = JSON.parse(dataStr);
+          const candidate = parsed.candidates?.[0];
+          const text = candidate?.content?.parts?.[0]?.text;
+          if (text) {
+            chrome.runtime.sendMessage({
+              type: "STREAM_CHUNK",
+              text,
+              target,
+              streamId
+            }).catch(() => {});
+          }
+          if (candidate?.finishReason === "STOP") {
+            chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
+            streamFinished = true;
+          }
+        } catch (err) {
+          // Parse error
+        }
+      }
+    }
+  }
+
+  if (!streamFinished) {
+    chrome.runtime.sendMessage({ type: "STREAM_COMPLETE", target, streamId }).catch(() => {});
   }
 }
 
 async function transcribeImageToText(image: string, keys: any): Promise<{ text: string; provider: string }> {
-  // 1. Try OpenAI vision
+  // 1. Try Google Gemini vision
+  if (keys.gemini) {
+    console.log("Transcribing image via Google Gemini...");
+    const visionModels = [...new Set([keys.geminiModel, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"])].filter(Boolean);
+    for (const vm of visionModels) {
+      try {
+        const base64Data = image.split(",")[1] || image;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${vm}:generateContent?key=${keys.gemini}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: "Transcribe all visible text from this image exactly. If there is no text, reply with nothing. Do not add any introductory or explanatory remarks." },
+                { inlineData: { mimeType: "image/png", data: base64Data } }
+              ]
+            }]
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (text) return { text, provider: `Google Gemini (${vm})` };
+        }
+      } catch (e: any) {
+        console.warn(`Gemini vision transcription failed on ${vm}:`, e.message);
+      }
+    }
+  }
+
+  // 2. Try OpenAI vision
   if (keys.openai) {
     console.log("Transcribing image via OpenAI gpt-4o-mini...");
     try {
@@ -247,7 +416,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<{ text: 
     }
   }
 
-  // 2. Try Claude vision
+  // 3. Try Claude vision
   if (keys.claude) {
     console.log("Transcribing image via Claude...");
     try {
@@ -290,7 +459,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<{ text: 
     }
   }
 
-  // 3. Try OpenRouter vision fallback
+  // 4. Try OpenRouter vision fallback
   if (keys.openrouter) {
     console.log("Transcribing image via OpenRouter flash vision...");
     try {
@@ -324,7 +493,7 @@ async function transcribeImageToText(image: string, keys: any): Promise<{ text: 
     }
   }
 
-  throw new Error("This model is text-only and cannot process images directly. Set up an OpenAI/Claude/OpenRouter key in Settings to auto-extract text from screenshot crops.");
+  throw new Error("This model is text-only and cannot process images directly. Set up a Google Gemini, OpenAI, Claude, or OpenRouter key in Settings to analyze screenshot crops.");
 }
 
 // Orchestrator that routes messages and handles fallbacks
@@ -333,6 +502,8 @@ async function handleGenerateStream(
   history: any[],
   model: string,
   keys: any,
+  streamId: string = "default",
+  target: string = "sidebar",
   image?: string
 ) {
   try {
@@ -342,7 +513,8 @@ async function handleGenerateStream(
         chrome.runtime.sendMessage({
           type: "STREAM_CHUNK",
           text: "[🔍 OCR: Extracting text from screenshot crop...]\n\n",
-          target: currentStreamTarget
+          target,
+          streamId
         }).catch(() => {});
 
         const ocrResult = await transcribeImageToText(image, keys);
@@ -354,20 +526,29 @@ async function handleGenerateStream(
         chrome.runtime.sendMessage({
           type: "OCR_PROVIDER_USED",
           provider: ocrResult.provider,
-          target: currentStreamTarget
+          target,
+          streamId
         }).catch(() => {});
         image = undefined; // Clear the image content parameter so text-only models don't crash
       } catch (err: any) {
         chrome.runtime.sendMessage({
           type: "STREAM_ERROR",
           error: err.message,
-          target: currentStreamTarget
+          target,
+          streamId
         }).catch(() => {});
         return;
       }
     }
 
     switch (model) {
+      case "gemini": {
+        if (!keys.gemini) throw new Error("Google Gemini API key missing. Please enter your key in Settings.");
+        const activeModelName = keys.geminiModel || "gemini-3.5-flash-lite";
+        await runGeminiStreamFetch(keys.gemini, activeModelName, prompt, history, streamId, target, image);
+        break;
+      }
+
       case "groq": {
         const pool = (keys.groq || "").split(",").map((k: string) => k.trim()).filter(Boolean);
         if (pool.length === 0) throw new Error("Groq key missing.");
@@ -376,7 +557,7 @@ async function handleGenerateStream(
         let success = false;
         for (let i = 0; i < pool.length; i++) {
           try {
-            await runStreamFetch("https://api.groq.com/openai/v1/chat/completions", pool[i], activeModelName, prompt, history, image);
+            await runStreamFetch("https://api.groq.com/openai/v1/chat/completions", pool[i], activeModelName, prompt, history, streamId, target, image);
             success = true;
             break;
           } catch (err: any) {
@@ -387,7 +568,7 @@ async function handleGenerateStream(
             if (orPool.length > 0) {
               const activeOrModel = keys.openrouterModel || "meta-llama/llama-3-8b-instruct:free";
               console.log("Groq rate limited. Cascading to OpenRouter fallback...");
-              await runStreamFetch("https://openrouter.ai/api/v1/chat/completions", orPool[0], activeOrModel, prompt, history, image);
+              await runStreamFetch("https://openrouter.ai/api/v1/chat/completions", orPool[0], activeOrModel, prompt, history, streamId, target, image);
               success = true;
               break;
             } else {
@@ -407,7 +588,7 @@ async function handleGenerateStream(
         let success = false;
         for (let i = 0; i < pool.length; i++) {
           try {
-            await runStreamFetch("https://openrouter.ai/api/v1/chat/completions", pool[i], activeModelName, prompt, history, image);
+            await runStreamFetch("https://openrouter.ai/api/v1/chat/completions", pool[i], activeModelName, prompt, history, streamId, target, image);
             success = true;
             break;
           } catch (err: any) {
@@ -422,28 +603,28 @@ async function handleGenerateStream(
       case "openai": {
         if (!keys.openai) throw new Error("OpenAI API key missing.");
         const activeModelName = keys.openaiModel || "gpt-4o-mini";
-        await runStreamFetch("https://api.openai.com/v1/chat/completions", keys.openai, activeModelName, prompt, history, image);
+        await runStreamFetch("https://api.openai.com/v1/chat/completions", keys.openai, activeModelName, prompt, history, streamId, target, image);
         break;
       }
 
       case "deepseek": {
         if (!keys.deepseek) throw new Error("DeepSeek API key missing.");
         const activeModelName = keys.deepseekModel || "deepseek-chat";
-        await runStreamFetch("https://api.deepseek.com/v1/chat/completions", keys.deepseek, activeModelName, prompt, history, image);
+        await runStreamFetch("https://api.deepseek.com/v1/chat/completions", keys.deepseek, activeModelName, prompt, history, streamId, target, image);
         break;
       }
 
       case "claude": {
         if (!keys.claude) throw new Error("Claude (Anthropic) API key missing.");
         const activeModelName = keys.claudeModel || "claude-3-5-sonnet-20241022";
-        await runClaudeStreamFetch(keys.claude, activeModelName, prompt, history, image);
+        await runClaudeStreamFetch(keys.claude, activeModelName, prompt, history, streamId, target, image);
         break;
       }
 
       case "mistral": {
         if (!keys.mistral) throw new Error("Mistral API key missing.");
         const activeModelName = keys.mistralModel || "mistral-small-latest";
-        await runStreamFetch("https://api.mistral.ai/v1/chat/completions", keys.mistral, activeModelName, prompt, history, image);
+        await runStreamFetch("https://api.mistral.ai/v1/chat/completions", keys.mistral, activeModelName, prompt, history, streamId, target, image);
         break;
       }
 
@@ -451,7 +632,7 @@ async function handleGenerateStream(
         if (!keys.customUrl) throw new Error("Custom Endpoint URL is missing.");
         const url = keys.customUrl.replace(/\/$/, "") + "/chat/completions";
         const modelName = keys.customModel || "custom-model";
-        await runStreamFetch(url, keys.customKey || "", modelName, prompt, history, image);
+        await runStreamFetch(url, keys.customKey || "", modelName, prompt, history, streamId, target, image);
         break;
       }
 
@@ -460,7 +641,7 @@ async function handleGenerateStream(
     }
   } catch (err: any) {
     console.error("Stream generation error:", err);
-    chrome.runtime.sendMessage({ type: "STREAM_ERROR", error: err.message, target: currentStreamTarget }).catch(() => {});
+    chrome.runtime.sendMessage({ type: "STREAM_ERROR", error: err.message, target, streamId }).catch(() => {});
   }
 }
 
@@ -529,6 +710,25 @@ async function fetchModelsFromApi(provider: string, apiKey: string, customUrl?: 
         headers = { "Authorization": `Bearer ${apiKey}` };
       }
       break;
+    case "gemini":
+      try {
+        const gemRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (gemRes.ok) {
+          const gemJson = await gemRes.json();
+          if (gemJson && Array.isArray(gemJson.models)) {
+            const list = gemJson.models
+              .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+              .map((m: any) => m.name.replace(/^models\//, ""));
+            if (list.length > 0) {
+              list.sort();
+              return list;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch dynamic Gemini models:", e);
+      }
+      return ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"];
     case "claude":
       // Claude has no standard public CORS /v1/models fetch list endpoint, return typical defaults
       return ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"];
@@ -564,13 +764,32 @@ chrome.runtime.onMessage.addListener((
   }
 
   if (message.type === "QUICK_ACTION") {
+    // CRITICAL: chrome.sidePanel.open MUST be called synchronously within the user gesture window!
+    // Using chrome.tabs.query asynchronously causes MV3 user gesture token expiration.
+    const winId = _sender.tab?.windowId;
+    if (winId) {
+      // @ts-ignore
+      chrome.sidePanel.open({ windowId: winId }).then(() => {
+        chrome.storage.local.set({
+          pendingQuickAction: {
+            action: message.action,
+            text: message.text,
+            timestamp: Date.now()
+          }
+        });
+      }).catch((err) => {
+        console.error("Failed to open side panel programmatically:", err);
+      });
+      sendResponse({ success: true });
+      return false;
+    }
+
+    // Fallback if no sender tab windowId
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
-      if (tab?.id) {
-        // Open the sidebar panel programmatically
+      if (tab?.id && tab?.windowId) {
         // @ts-ignore
         chrome.sidePanel.open({ windowId: tab.windowId }).then(() => {
-          // Store the action in shared storage for sidebar retrieval
           chrome.storage.local.set({
             pendingQuickAction: {
               action: message.action,
@@ -589,15 +808,17 @@ chrome.runtime.onMessage.addListener((
 
   if (message.type === "GENERATE_STREAM") {
     currentStreamTarget = "sidebar";
-    handleGenerateStream(message.prompt, message.history, message.model, message.keys, message.image);
-    sendResponse({ status: "STREAMING_STARTED" });
+    const streamId = message.streamId || Math.random().toString(36).slice(2);
+    handleGenerateStream(message.prompt, message.history, message.model, message.keys, streamId, "sidebar", message.image);
+    sendResponse({ status: "STREAMING_STARTED", streamId });
     return false;
   }
 
   if (message.type === "GENERATE_STREAM_INLINE") {
     currentStreamTarget = "inline-composer";
-    handleGenerateStream(message.prompt, message.history, message.model, message.keys, message.image);
-    sendResponse({ status: "STREAMING_STARTED" });
+    const streamId = message.streamId || Math.random().toString(36).slice(2);
+    handleGenerateStream(message.prompt, message.history, message.model, message.keys, streamId, "inline-composer", message.image);
+    sendResponse({ status: "STREAMING_STARTED", streamId });
     return false;
   }
 
@@ -617,8 +838,11 @@ chrome.runtime.onMessage.addListener((
   if (message.type === "GET_MAIN_WORLD_YT_RESPONSE") {
     (async () => {
       try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const tabId = tabs[0]?.id;
+        let tabId = _sender.tab?.id;
+        if (!tabId) {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          tabId = tabs[0]?.id;
+        }
         if (!tabId) {
           sendResponse({ success: false, error: "No active tab found." });
           return;
@@ -784,32 +1008,73 @@ chrome.runtime.onMessage.addListener((
         }
 
         console.log(`Performing web search for: "${query}"`);
-        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-        
-        const response = await fetch(searchUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        let results: { title: string; url: string; snippet: string }[] = [];
+
+        // 1. Try DuckDuckGo HTML search first
+        try {
+          const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+          const response = await fetch(searchUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          });
+          
+          if (response.ok) {
+            const html = await response.text();
+            if (html.includes("result__snippet") || html.includes("result__title")) {
+              await createOffscreenDocument();
+              const parseRes = await chrome.runtime.sendMessage({
+                type: "PARSE_DDG_SEARCH",
+                html
+              });
+
+              if (parseRes && parseRes.success && Array.isArray(parseRes.results) && parseRes.results.length > 0) {
+                results = parseRes.results;
+              }
+            }
           }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`DuckDuckGo request failed with status ${response.status}`);
-        }
-        
-        const html = await response.text();
-        
-        await createOffscreenDocument();
-        const parseRes = await chrome.runtime.sendMessage({
-          type: "PARSE_DDG_SEARCH",
-          html
-        });
-
-        if (!parseRes || !parseRes.success) {
-          throw new Error(parseRes?.error || "Failed to parse search results.");
+        } catch (e: any) {
+          console.warn("DuckDuckGo HTML search attempt failed or challenged:", e.message);
         }
 
-        const results = parseRes.results || [];
-        
+        // 2. Fallback to DuckDuckGo Instant Answers API (immune to anti-bot challenges)
+        if (results.length === 0) {
+          try {
+            console.log("Using DuckDuckGo Instant Answers API fallback for:", query);
+            const instantUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+            const instantRes = await fetch(instantUrl);
+            if (instantRes.ok) {
+              const data = await instantRes.json();
+              if (data.AbstractText && data.AbstractURL) {
+                results.push({
+                  title: data.Heading || query,
+                  url: data.AbstractURL,
+                  snippet: data.AbstractText
+                });
+              }
+              if (Array.isArray(data.RelatedTopics)) {
+                for (const topic of data.RelatedTopics) {
+                  if (topic.Text && topic.FirstURL) {
+                    results.push({
+                      title: topic.Text.slice(0, 70) + "...",
+                      url: topic.FirstURL,
+                      snippet: topic.Text
+                    });
+                  }
+                  if (results.length >= 6) break;
+                }
+              }
+            }
+          } catch (e: any) {
+            console.warn("DuckDuckGo Instant Answers fallback error:", e.message);
+          }
+        }
+
+        if (results.length === 0) {
+          sendResponse({ success: false, error: "No search results found. Search endpoint may be temporarily rate limited." });
+          return;
+        }
+
         // Fetch top 2 pages for deep search content context
         const pagePromises = results.slice(0, 2).map(async (res: any) => {
           try {
@@ -866,8 +1131,11 @@ chrome.runtime.onMessage.addListener((
   if (message.type === "INJECT_CONTENT_SCRIPT") {
     (async () => {
       try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const tabId = tabs[0]?.id;
+        let tabId = message.tabId || _sender.tab?.id;
+        if (!tabId) {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          tabId = tabs[0]?.id;
+        }
         if (!tabId) {
           sendResponse({ success: false, error: "No active tab found." });
           return;
